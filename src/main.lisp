@@ -1,4 +1,10 @@
-(uiop:define-package :ningle-actions
+(uiop:define-package #:ningle-actions
   (:nicknames #:ningle-actions/main)
-  (:use #:cl))
-(in-package :ningle-actions)
+  (:use #:cl)
+  (:use-reexport #:ningle-actions/app
+                 #:ningle-actions/action))
+(in-package #:ningle-actions)
+
+;; Initialize the global actions app on load.
+(unless *app*
+  (make-action-app))
