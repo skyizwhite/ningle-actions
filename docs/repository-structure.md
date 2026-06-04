@@ -51,7 +51,7 @@ ningle-actions/
 
 | ファイル | パッケージ | 役割 | 主な公開シンボル |
 |----------|-----------|------|------------------|
-| `src/app.lisp` | `ningle-actions/app` | `actions-app` クラス（`ningle:app` 継承）、`registry` / `name-index`、`*app*`、`make-action-app`、`register-action` / `find-action` / `dispatch-action` / `action-endpoint`、定数 `+action-prefix+` | `actions-app` `*app*` `make-action-app` `action-endpoint` |
+| `src/app.lisp` | `ningle-actions/app` | `actions-app` クラス（`ningle:app` 継承）、`registry` / `name-index`、`*app*`、`make-action-app`、`register-action` / `find-action` / `dispatch-action` / `action-endpoint`（内部）、定数 `+action-prefix+` | `actions-app` `*app*` `make-action-app`（`action-endpoint` は内部） |
 | `src/action.lisp` | `ningle-actions/action` | `defaction` マクロ。本体クロージャ生成 → `register-action` 登録 → エンドポイント関数 `defun` | `defaction` |
 | `src/main.lisp` | `ningle-actions`（nick: `ningle-actions/main`） | 公開 API の集約・再エクスポート。ロード時の `*app*` 初期化 | （再エクスポートのみ） |
 

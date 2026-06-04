@@ -280,9 +280,9 @@ graph TD
 | `make-action-app` | 関数 | アクションアプリ生成（`*app*` に設定） |
 | `*app*` | 変数 | 現在のグローバルアクションアプリ |
 | `actions-app` | クラス | アクションアプリ型 |
-| `action-endpoint` | 関数 | `(id)` → 完全 URL |
 
-> マウント用ヘルパ・htmx ヘルパ・型強制/バリデーション API は提供しない（mount は利用者責務、HX-* と `params` は ningle 標準のまま扱う）。
+> `action-endpoint`（`(id)` → 完全 URL）は内部ヘルパとし公開しない。`action_id` は不透明な内部値で利用者は保持せず、URL は `defaction` が定義する同名関数経由でのみ取得する。
+> マウント用ヘルパ・htmx ヘルパ・型強制/バリデーション API も提供しない（mount は利用者責務、HX-* と `params` は ningle 標準のまま扱う）。
 
 ---
 
