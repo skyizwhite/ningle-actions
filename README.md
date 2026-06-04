@@ -25,15 +25,6 @@ attributes like `hx-post`.
 - **Integrate by mounting**: `actions-app` is a `ningle:app` subclass; mount it
   into your host app with `lack:builder`'s `:mount`.
 
-## Installation
-
-Depends on `ningle` and `lack`. Intended to be used with
-[qlot](https://github.com/fukamachi/qlot).
-
-```
-qlot install
-```
-
 ## Usage
 
 ```lisp
@@ -80,18 +71,6 @@ The second argument of `defaction` is the method (`:get` `:post` `:put`
 `:patch` `:delete`). A request with a mismatched method returns `405`, and an
 unknown id returns `404`.
 
-### htmx response headers
-
-`HX-*` headers are set via ningle's standard `*response*` (this library ships
-no dedicated helpers):
-
-```lisp
-(na:defaction notify :post (params)
-  (declare (ignore params))
-  (setf (getf (lack/response:response-headers ningle:*response*) :|HX-Trigger|) "notified")
-  "<div>done</div>")
-```
-
 ## API
 
 | Symbol | Kind | Description |
@@ -127,21 +106,6 @@ In particular:
 The convenience of `defaction` can make it easy to forget that each action is a
 publicly reachable endpoint, so apply the same scrutiny you would to a
 hand-written route.
-
-## Out of scope (future / user's responsibility)
-
-- Response shaping / content-type — delegated to ningle's `process-response`
-- Type coercion / input validation — the user handles it from `params`
-- htmx helpers — use `*response*` directly (a separate package may add these)
-- Mount wiring — the user does it with `lack:builder`
-
-See [`docs/`](./docs/) for the detailed design (in Japanese).
-
-## Tests
-
-```
-qlot exec sbcl --non-interactive --eval '(asdf:test-system :ningle-actions)'
-```
 
 ## License
 
