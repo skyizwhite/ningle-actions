@@ -101,6 +101,33 @@ no dedicated helpers):
 | `*app*` | variable | The current actions app; the implicit target of `defaction` |
 | `actions-app` | class | The actions app type (a `ningle:app` subclass) |
 
+## Security
+
+An action defined with `defaction` is just a normal HTTP request handler
+reachable from the network. It carries the **same web security risks as any
+other endpoint**, and you must guard against them yourself — this library does
+not, and the random `action_id` is *not* a secret (it is embedded in the HTML
+sent to every client, so it is visible in the DOM, network logs, and `Referer`
+headers; it only prevents enumeration, never authorization).
+
+In particular:
+
+- **CSRF** — actions are typically triggered by browser-native form/`hx-post`
+  submissions, which can be sent cross-origin. Validate a CSRF token or check
+  the `Origin`/`Referer` header (e.g. in your action body or a mount-level
+  middleware).
+- **Authentication / authorization** — check the session/user inside the
+  action (`ningle:*request*` / `*session*` are available) before performing any
+  privileged work. Do not rely on the opaque URL as an access control.
+- **Input validation & injection** — `params` reaches the body as raw strings.
+  Validate and coerce them, and use parameterized queries (SQLi), path
+  normalization (path traversal), and output escaping (XSS) as you would in any
+  handler.
+
+The convenience of `defaction` can make it easy to forget that each action is a
+publicly reachable endpoint, so apply the same scrutiny you would to a
+hand-written route.
+
 ## Out of scope (future / user's responsibility)
 
 - Response shaping / content-type — delegated to ningle's `process-response`
