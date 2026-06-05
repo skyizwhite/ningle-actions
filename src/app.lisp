@@ -15,10 +15,10 @@
                 #:plist-alist)
   (:export #:actions-app
            #:*app*
-           #:make-action-app))
+           #:make-actions-app))
 (in-package #:ningle-actions/app)
 
-(defparameter +action-prefix+ "/actions"
+(defparameter +actions-prefix+ "/actions"
   "Mount prefix of the actions app (fixed). Prepended to endpoint URLs.
 Logically a constant, but defined with defparameter to avoid the string
 constant redefinition problem.")
@@ -40,7 +40,7 @@ constant redefinition problem.")
   (:documentation "A ningle:app subclass that registers and dispatches actions."))
 
 (defvar *app* nil
-  "The current actions app. Initialized by make-action-app when main is loaded.
+  "The current actions app. Initialized by make-actions-app when main is loaded.
 defaction registers into this variable implicitly.")
 
 (defun find-action (app id)
@@ -72,7 +72,7 @@ keys and string/number values). Order follows the plist."
 assembled with quri:make-uri. If QUERY (a plist of keyword/value pairs) is
 non-nil, it is appended as a URL-encoded query string; otherwise the bare
 /actions/<id> is returned."
-  (let ((path (concatenate 'string +action-prefix+ "/" id)))
+  (let ((path (concatenate 'string +actions-prefix+ "/" id)))
     (if query
         (render-uri (make-uri :path path :query (query-params-alist query)))
         path)))
@@ -91,7 +91,7 @@ unchanged and left to ningle to turn into a response."
       (t
        (funcall (action-handler action) params)))))
 
-(defun make-action-app ()
+(defun make-actions-app ()
   "Create an actions app and register the single /:action_id route for all
 standard methods. Sets *app* to the new instance and returns it."
   (let ((app (make-instance 'actions-app)))

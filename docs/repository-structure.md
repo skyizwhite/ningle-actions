@@ -51,7 +51,7 @@ ningle-actions/
 
 | ファイル | パッケージ | 役割 | 主な公開シンボル |
 |----------|-----------|------|------------------|
-| `src/app.lisp` | `ningle-actions/app` | `actions-app` クラス（`ningle:app` 継承）、`registry` / `name-index`、`*app*`、`make-action-app`、`register-action` / `find-action` / `dispatch-action` / `action-endpoint`（内部）、定数 `+action-prefix+` | `actions-app` `*app*` `make-action-app`（`action-endpoint` は内部） |
+| `src/app.lisp` | `ningle-actions/app` | `actions-app` クラス（`ningle:app` 継承）、`registry` / `name-index`、`*app*`、`make-actions-app`、`register-action` / `find-action` / `dispatch-action` / `action-endpoint`（内部）、定数 `+actions-prefix+` | `actions-app` `*app*` `make-actions-app`（`action-endpoint` は内部） |
 | `src/action.lisp` | `ningle-actions/action` | `defaction` マクロ。本体クロージャ生成 → `register-action` 登録 → エンドポイント関数 `defun` | `defaction` |
 | `src/main.lisp` | `ningle-actions`（nick: `ningle-actions/main`） | 公開 API の集約・再エクスポート。ロード時の `*app*` 初期化 | （再エクスポートのみ） |
 
@@ -70,7 +70,7 @@ main ──▶ action ──▶ app
 
 - 内部パッケージ: `ningle-actions/<file>`（パス対応・package-inferred-system 必須）。
 - 公開窓口パッケージ: `ningle-actions`（`src/main.lisp` の primary、nickname に `ningle-actions/main`）。
-- 利用者は `ningle-actions`（または短縮ニックを各自定義）から `defaction` / `make-action-app` 等を参照する。
+- 利用者は `ningle-actions`（または短縮ニックを各自定義）から `defaction` / `make-actions-app` 等を参照する。
 
 ### main.lisp の集約方針
 - `uiop:define-package` の `:use-reexport` で `ningle-actions/app` と `ningle-actions/action` の公開シンボルをまとめて再エクスポートする。
@@ -87,7 +87,7 @@ main ──▶ action ──▶ app
 
 | ファイル | 検証対象 |
 |----------|----------|
-| `tests/app.lisp` | `make-action-app` / レジストリ登録・検索 / `dispatch-action`（404・405・正常）/ `action-endpoint` / `action_id` 再利用 |
+| `tests/app.lisp` | `make-actions-app` / レジストリ登録・検索 / `dispatch-action`（404・405・正常）/ `action-endpoint` / `action_id` 再利用 |
 | `tests/action.lisp` | `defaction` 展開（登録 + エンドポイント関数定義）/ `params` 受領 / メソッド指定 |
 | `tests/main.lisp` | 公開 API の統合的な動作・集約 |
 

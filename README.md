@@ -35,7 +35,7 @@ attributes like `hx-post`.
 (in-package #:my-app)
 
 ;; 1. Create an actions app (the prefix is fixed to /actions).
-(defparameter *actions* (na:make-action-app))
+(defparameter *actions* (na:make-actions-app))
 
 ;; 2. Define an action. A function `like` is defined at the same time;
 ;;    calling it returns the endpoint URL.
@@ -53,7 +53,7 @@ attributes like `hx-post`.
 
 (defparameter *app*
   (lack:builder
-    (:mount "/actions" *actions*)   ; match make-action-app's "/actions" prefix
+    (:mount "/actions" *actions*)   ; match make-actions-app's "/actions" prefix
     *web*))
 ```
 
@@ -97,7 +97,7 @@ unknown id returns `404`.
 | Symbol | Kind | Description |
 |--------|------|-------------|
 | `defaction` | macro | `(defaction NAME METHOD (PARAMS) &body BODY)`. Registers an action and defines a same-named function returning the URL; keyword arguments to that function become query parameters |
-| `make-action-app` | function | Creates an actions app, sets `*app*`, and returns it (no arguments) |
+| `make-actions-app` | function | Creates an actions app, sets `*app*`, and returns it (no arguments) |
 | `*app*` | variable | The current actions app; the implicit target of `defaction` |
 | `actions-app` | class | The actions app type (a `ningle:app` subclass) |
 

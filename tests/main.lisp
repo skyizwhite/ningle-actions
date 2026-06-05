@@ -2,7 +2,7 @@
   (:use #:cl #:rove)
   (:import-from #:ningle-actions
                 #:defaction
-                #:make-action-app
+                #:make-actions-app
                 #:*app*)
   (:import-from #:lack
                 #:builder))
@@ -31,7 +31,7 @@ and bind CALL-VAR to a function that issues a request as (method path &optional 
 
 (deftest integration-normal
   (testing "the action body runs for the right URL/method and its return value becomes the response"
-    (let ((*app* (make-action-app)))
+    (let ((*app* (make-actions-app)))
       (defaction greet :post (params)
         (format nil "hello ~A" (cdr (assoc "name" params :test #'string=))))
       (with-mounted (call)
@@ -41,14 +41,14 @@ and bind CALL-VAR to a function that issues a request as (method path &optional 
 
 (deftest integration-not-found
   (testing "an unknown action_id returns 404"
-    (let ((*app* (make-action-app)))
+    (let ((*app* (make-actions-app)))
       (with-mounted (call)
         (let ((res (funcall call :post "/actions/does-not-exist")))
           (ok (eql 404 (first res))))))))
 
 (deftest integration-method-not-allowed
   (testing "a method mismatch returns 405"
-    (let ((*app* (make-action-app)))
+    (let ((*app* (make-actions-app)))
       (defaction only-post :post (params) (declare (ignore params)) "ok")
       (with-mounted (call)
         (let ((res (funcall call :get (only-post))))
@@ -56,7 +56,7 @@ and bind CALL-VAR to a function that issues a request as (method path &optional 
 
 (deftest integration-passthrough
   (testing "a path not matching the prefix falls through to the main app"
-    (let ((*app* (make-action-app)))
+    (let ((*app* (make-actions-app)))
       (with-mounted (call)
         (let ((res (funcall call :get "/somewhere-else")))
           (ok (eql 404 (first res)))

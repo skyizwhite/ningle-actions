@@ -50,7 +50,7 @@
 ningle-actions          (ASDF system)
 └── ningle-actions/main         ← 公開 API 再エクスポート・*app* 初期化
     ├── ningle-actions/action   ← defaction / endpoint 関数
-    └── ningle-actions/app      ← actions-app / registry / dispatch / make-action-app
+    └── ningle-actions/app      ← actions-app / registry / dispatch / make-actions-app
 ```
 
 > 詳細なファイル配置は [repository-structure.md](./repository-structure.md) で確定する。
@@ -65,15 +65,15 @@ ningle-actions          (ASDF system)
 - 単一ルート `/:action_id` は `(setf (ningle:route app "/:action_id" :method '(:GET :POST :PUT :PATCH :DELETE)) #'dispatch)` で登録する。`action_id` は `(cdr (assoc :action_id params))` で取得（ningle のパスパラメータ規約に準拠）。
 
 ### 3.2 グローバル状態
-- ライブラリは特殊変数 `*app*`（現在のアクションアプリ）を保持する。`make-action-app` がこれを設定し、`defaction` は暗黙に参照する。
-- テスト時は `*app*` を `let` で再束縛、または `make-action-app` で再生成して隔離する（NFR3）。
+- ライブラリは特殊変数 `*app*`（現在のアクションアプリ）を保持する。`make-actions-app` がこれを設定し、`defaction` は暗黙に参照する。
+- テスト時は `*app*` を `let` で再束縛、または `make-actions-app` で再生成して隔離する（NFR3）。
 
 ### 3.3 `action_id` とセキュリティ
 - `action_id` は推測困難なランダムトークン（`generate-random-id` = ironclad の乱数 40 桁 hex）。列挙攻撃を避ける（NFR4）。
 - 入力検証・出力エスケープ（XSS 対策）は利用者責務。ドキュメントで注意喚起する。
 
 ### 3.4 マウントとの整合
-- 接頭辞は `/actions` 固定（定数 `+action-prefix+`）。エンドポイント関数はこの定数を前置する。
+- 接頭辞は `/actions` 固定（定数 `+actions-prefix+`）。エンドポイント関数はこの定数を前置する。
 - mount ミドルウェアは `path-info` のみ書き換え `script-name` を更新しない（実装確認済み）ため、接頭辞は実行時取得せず固定値で扱う。利用者は `(:mount "/actions" *app*)` で一致させる。
 
 ### 3.5 スコープ外（技術的に持ち込まないもの）

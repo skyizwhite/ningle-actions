@@ -20,7 +20,7 @@
 | クエリパラメータ | Query parameter | （エンドポイント関数のキーワード引数） | エンドポイント関数に渡すキーワード引数。キーは小文字化した名前、値は文字列化され、URL エンコードして `?key=value` 形式で URL に付加される。 |
 | ディスパッチ | Dispatch | `dispatch-action` | 単一ルート `/:action_id` に届いたリクエストを、`action_id` でレジストリを引いて対応ハンドラへ振り分ける処理。 |
 | ハンドラ | Handler | `handler` | アクション本体を包む、`params` を受け取るクロージャ。 |
-| 接頭辞 | Prefix | `+action-prefix+` | アクションアプリのマウント位置。固定値 `"/actions"`。 |
+| 接頭辞 | Prefix | `+actions-prefix+` | アクションアプリのマウント位置。固定値 `"/actions"`。 |
 | パラメータ | Params | `params` | ningle がハンドラに渡すリクエストパラメータの alist。本ライブラリは加工せずそのまま渡す。 |
 
 ---

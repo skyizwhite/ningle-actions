@@ -7,4 +7,4 @@
 
 ;; Initialize the global actions app on load.
 (unless *app*
-  (make-action-app))
+  (make-actions-app))

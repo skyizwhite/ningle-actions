@@ -17,7 +17,7 @@
 - アクションの登録先は **ライブラリが保持するグローバルなアクションアプリ `*app*`**。`defaction` はこれを暗黙に使い、**利用者はアプリインスタンスを意識しない**。
 - アクション本体は **ningle と同じく `params`（alist）をそのまま受け取る**。型強制・引数バリデーションは行わない（利用者の責務）。
 - アクション本体の **戻り値も ningle の `process-response` がそのまま処理する**。レスポンス整形・content-type 設定・シリアライズはライブラリでは行わない（利用者／ningle の責務）。
-- 接頭辞は **`/actions` 固定**。アクションアプリは `(make-action-app)` で生成し、**マウント（本体への統合）は利用者の責務**（本ライブラリのスコープ外。ドキュメントで手順を案内）。
+- 接頭辞は **`/actions` 固定**。アクションアプリは `(make-actions-app)` で生成し、**マウント（本体への統合）は利用者の責務**（本ライブラリのスコープ外。ドキュメントで手順を案内）。
 
 これにより、利用者はルートパスを設計・記憶する必要がなくなり、アクションは「名前で呼ぶ関数」として扱える（Next.js Server Actions の発想）。一方でリクエスト値の扱いは ningle の流儀を崩さない。
 
@@ -60,14 +60,14 @@ graph TD
 
 ```mermaid
 graph TD
-    A["(make-action-app)"] -->|"生成し *app* に設定して返す"| APP["*app* : actions-app"]
+    A["(make-actions-app)"] -->|"生成し *app* に設定して返す"| APP["*app* : actions-app"]
     DEF["defaction (app 指定なし)"] -->|"*app* に登録"| APP
     DEF -->|"endpoint 関数を定義"| FN["(like) ⇒ \"/actions/&lt;id&gt;\""]
     USER["利用者"] -->|"返り値を保持し自分で mount<br/>(スコープ外)"| MOUNT["(:mount \"/actions\" *app*)"]
 ```
 
 - `*app*`（`ningle-actions:*app*`）はライブラリが保持するグローバルなアクションアプリ。ロード時に既定値で初期化される。
-- `(make-action-app)` は新しい `actions-app` を生成して `*app*` に設定し、それを返す。**アクション定義より前に呼ぶ**。
+- `(make-actions-app)` は新しい `actions-app` を生成して `*app*` に設定し、それを返す。**アクション定義より前に呼ぶ**。
 - `defaction` は `*app*` に登録する。
 
 ### 1.3 接頭辞（prefix）の扱い
@@ -159,7 +159,7 @@ classDiagram
 ```mermaid
 graph TD
     MAIN["ningle-actions/main<br/>公開 API 集約・再エクスポート・*app* 初期化"]
-    APP["ningle-actions/app<br/>actions-app・registry・dispatch・make-action-app・*app*・定数"]
+    APP["ningle-actions/app<br/>actions-app・registry・dispatch・make-actions-app・*app*・定数"]
     ACTION["ningle-actions/action<br/>defaction マクロ・endpoint 関数生成"]
 
     MAIN --> ACTION
@@ -168,10 +168,10 @@ graph TD
 ```
 
 ### 4.1 `app`（actions-app / registry / dispatch / グローバル）
-- 定数: `+action-prefix+` = `"/actions"`。
+- 定数: `+actions-prefix+` = `"/actions"`。
 - `actions-app` クラス（`ningle:app` 継承）。スロット: `registry` / `name-index`。
 - `*app*` : グローバルな現在のアクションアプリ（特殊変数）。ロード時に既定で初期化。
-- `make-action-app ()`:
+- `make-actions-app ()`:
   - `actions-app` を生成し、**生成時に単一ルートを全標準メソッドで登録**:
     ```lisp
     (setf (ningle:route app "/:action_id"
@@ -229,7 +229,7 @@ graph TD
 #### 利用例
 
 ```lisp
-(defparameter *actions* (make-action-app))   ; *app* に設定される
+(defparameter *actions* (make-actions-app))   ; *app* に設定される
 
 (defaction like :post (params)
   (let ((id (parse-integer (cdr (assoc "id" params :test #'string=)))))
@@ -269,10 +269,10 @@ graph TD
     (defun like (&rest query) (action-endpoint #1# query))))
 ```
 
-### 5.2 `make-action-app`
+### 5.2 `make-actions-app`
 
 ```lisp
-(make-action-app)
+(make-actions-app)
   ;; => actions-app（単一ルート /:action_id 登録済み）。*app* に設定して返す。
 ```
 
@@ -281,7 +281,7 @@ graph TD
 | シンボル | 種別 | 概要 |
 |----------|------|------|
 | `defaction` | マクロ | アクション登録 + エンドポイント関数定義 |
-| `make-action-app` | 関数 | アクションアプリ生成（`*app*` に設定） |
+| `make-actions-app` | 関数 | アクションアプリ生成（`*app*` に設定） |
 | `*app*` | 変数 | 現在のグローバルアクションアプリ |
 | `actions-app` | クラス | アクションアプリ型 |
 
