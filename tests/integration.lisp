@@ -1,13 +1,14 @@
-(uiop:define-package #:ningle-actions-test/main
+(uiop:define-package #:ningle-actions-test/integration
   (:use #:cl #:rove)
   (:import-from #:ningle-actions
                 #:defaction
-                #:*actions-app*)
-  (:import-from #:ningle-actions/app
+                #:*actions-app*
+                #:*actions-middleware*)
+  (:import-from #:ningle-actions/core
                 #:make-actions-app)
   (:import-from #:lack
                 #:builder))
-(in-package #:ningle-actions-test/main)
+(in-package #:ningle-actions-test/integration)
 
 (defun %env (method path &optional query-string)
   "Build a minimal Clack environment for testing."
@@ -20,10 +21,10 @@
         :url-scheme "http"))
 
 (defmacro with-mounted ((call-var) &body body)
-  "Build an integrated app with the actions app (*actions-app*) mounted at /actions,
+  "Build an integrated app with the actions app mounted via *actions-middleware*,
 and bind CALL-VAR to a function that issues a request as (method path &optional query)."
   (let ((app (gensym "APP")))
-    `(let* ((,app (builder (:mount "/actions" *actions-app*)
+    `(let* ((,app (builder *actions-middleware*
                            (lambda (env) (declare (ignore env)) '(404 () ("MAIN-404")))))
             (,call-var (lambda (method path &optional query)
                          (funcall ,app (%env method path query)))))

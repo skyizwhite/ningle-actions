@@ -12,7 +12,8 @@
 | アクション | Action | `action`（レコード/概念） | サーバー上で実行される処理の単位。HTTP メソッド・本体・`action_id` を持ち、レジストリに登録される。Next.js の Server Action に相当。 |
 | アクション ID | Action ID | `action_id`（URL）/ `id` | 各アクションを一意に識別するランダムな不透明トークン。URL の 1 セグメントとして使われる。 |
 | アクションアプリ | Actions App | `actions-app` / `*actions-app*` | アクションを登録・ディスパッチする `ningle:app` 派生インスタンス。レジストリと name-index を持つ。 |
-| シングルトンアプリ | Singleton app | `*actions-app*` | ライブラリがロード時に提供するシングルトンのアクションアプリを指す特殊変数。`defaction` の暗黙の登録先であり、利用者はこれをそのまま mount する。 |
+| シングルトンアプリ | Singleton app | `*actions-app*` | ライブラリがロード時に提供するシングルトンのアクションアプリを指す特殊変数。`defaction` の暗黙の登録先。マウントは `*actions-middleware*` を介して行う。 |
+| アクションミドルウェア | Actions middleware | `*actions-middleware*` | `*actions-app*` を固定接頭辞 `/actions` でマウントする Lack ミドルウェア。利用者は `lack:builder` のチェインに置くだけでよい。 |
 | レジストリ | Registry | `registry` | `action_id` → アクション のハッシュテーブル。 |
 | ネームインデックス | Name index | `name-index` | アクション名（シンボル）→ `action_id` の対応表。再定義時に `action_id` を再利用するために用いる。 |
 | エンドポイント | Endpoint | `endpoint` | アクションを呼び出すための URL。`/actions/<action_id>`。 |
@@ -29,7 +30,7 @@
 
 | 用語（日本語） | 用語（英語） | コード上の名称 | 定義 |
 |----------------|--------------|----------------|------|
-| マウント | Mount | `:mount`（Lack builder） | アクションアプリを本体アプリの接頭辞配下に組み込む Lack ミドルウェア。配線は利用者責務（スコープ外）。 |
+| マウント | Mount | `*actions-middleware*` / `:mount`（Lack builder） | アクションアプリを本体アプリの接頭辞 `/actions` 配下に組み込む Lack ミドルウェア。ライブラリが `*actions-middleware*` を提供し、利用者は builder に置くだけでよい（内部で `:mount` に委譲）。 |
 | 本体アプリ | Main app / Host app | （利用者の `ningle:app`） | アクションアプリをマウントする側の Web アプリケーション。 |
 | ルート | Route | `(setf ningle:route)` | ningle のルーティング登録機構。アクションアプリは `/:action_id` の 1 本のみ登録する。 |
 | パスパラメータ | Path parameter | `:action_id` | URL パス中の動的セグメント。`(cdr (assoc :action_id params))` で取得（キーワードキー）。 |

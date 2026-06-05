@@ -35,7 +35,7 @@
 
 ### 1.4 想定する利用側スタック（参考・本ライブラリ非依存）
 - **htmx**: クライアント側のハイパーメディア駆動（呼び出しモデル）。
-- **Lack builder の `:mount`**: アクションアプリを本体へ統合（mount 配線は利用者責務）。
+- **Lack builder**: アクションアプリを本体へ統合。ライブラリが提供する `*actions-middleware*` を builder のチェインに置くだけで `/actions` にマウントされる（内部で `:mount` ミドルウェアに委譲）。
 - **HTML 生成**: 文字列・Spinneret・cl-who など任意（ビュー層非依存）。
 
 ---
@@ -48,9 +48,8 @@
 
 ```
 ningle-actions          (ASDF system)
-└── ningle-actions/main         ← 公開 API 再エクスポート
-    ├── ningle-actions/action   ← defaction / endpoint 関数
-    └── ningle-actions/app      ← actions-app / registry / dispatch / *actions-app* シングルトン / (内部) make-actions-app
+└── ningle-actions/main        ← 公開 API 再エクスポート
+    └── ningle-actions/core     ← defaction / endpoint 関数 / actions-app / registry / dispatch / *actions-app* シングルトン / *actions-middleware* / (内部) make-actions-app
 ```
 
 > 詳細なファイル配置は [repository-structure.md](./repository-structure.md) で確定する。
@@ -67,7 +66,7 @@ ningle-actions          (ASDF system)
 ### 3.2 グローバル状態
 - ライブラリは特殊変数 `*actions-app*`（シングルトンのアクションアプリ）を提供する。ロード時に `(make-actions-app)` の戻り値で初期化する `defvar` であり、`defaction` は暗黙に参照する。利用者はインスタンスを生成・保持しない。
 - 内部コンストラクタ `make-actions-app`（非公開）は**副作用を持たない純粋関数**。グローバル変数は書き換えず、シングルトンの初期化フォームとテストの隔離インスタンス生成にのみ用いる。
-- テスト時は `*actions-app*` を `let` で再束縛し、内部 `make-actions-app`（`ningle-actions/app` から参照）で生成した隔離インスタンスに差し替える（NFR3）。
+- テスト時は `*actions-app*` を `let` で再束縛し、内部 `make-actions-app`（`ningle-actions/core` から参照）で生成した隔離インスタンスに差し替える（NFR3）。
 
 ### 3.3 `action_id` とセキュリティ
 - `action_id` は推測困難なランダムトークン（`generate-random-id` = ironclad の乱数 40 桁 hex）。列挙攻撃を避ける（NFR4）。
@@ -75,13 +74,13 @@ ningle-actions          (ASDF system)
 
 ### 3.4 マウントとの整合
 - 接頭辞は `/actions` 固定（定数 `+actions-prefix+`）。エンドポイント関数はこの定数を前置する。
-- mount ミドルウェアは `path-info` のみ書き換え `script-name` を更新しない（実装確認済み）ため、接頭辞は実行時取得せず固定値で扱う。利用者は `(:mount "/actions" *actions-app*)` で一致させる。
+- mount ミドルウェアは `path-info` のみ書き換え `script-name` を更新しない（実装確認済み）ため、接頭辞は実行時取得せず固定値で扱う。ライブラリは `/actions` 固定でマウントする `*actions-middleware*` を提供し、利用者はこれを builder に置くだけでよい（接頭辞ずれの余地をなくす）。
 
 ### 3.5 スコープ外（技術的に持ち込まないもの）
 - レスポンス整形・content-type 付与（ningle の `process-response` に委譲）。
 - 型強制・引数バリデーション（利用者責務、将来機能）。
 - htmx ヘルパ（`*response*` 操作で代替、将来は別パッケージ候補）。
-- mount 配線・クライアント JS ランタイム。
+- クライアント JS ランタイム（mount 配線はライブラリが `*actions-middleware*` で提供する）。
 
 ---
 

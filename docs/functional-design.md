@@ -17,7 +17,7 @@
 - アクションの登録先は **ライブラリが提供するシングルトンのアクションアプリ `*actions-app*`**。`defaction` はこれを暗黙に使い、**利用者はアプリインスタンスを生成・保持しない**（ライブラリが用意したものをそのまま使う）。
 - アクション本体は **ningle と同じく `params`（alist）をそのまま受け取る**。型強制・引数バリデーションは行わない（利用者の責務）。
 - アクション本体の **戻り値も ningle の `process-response` がそのまま処理する**。レスポンス整形・content-type 設定・シリアライズはライブラリでは行わない（利用者／ningle の責務）。
-- 接頭辞は **`/actions` 固定**。アクションアプリ `*actions-app*` はライブラリがロード時に生成するシングルトンで、**マウント（本体への統合）は利用者の責務**（本ライブラリのスコープ外。ドキュメントで手順を案内）。
+- 接頭辞は **`/actions` 固定**。アクションアプリ `*actions-app*` はライブラリがロード時に生成するシングルトンで、**マウントは `*actions-middleware*` を `lack:builder` のチェインに置くだけ**で行える（接頭辞 `/actions` は内包）。
 
 これにより、利用者はルートパスを設計・記憶する必要がなくなり、アクションは「名前で呼ぶ関数」として扱える（Next.js Server Actions の発想）。一方でリクエスト値の扱いは ningle の流儀を崩さない。
 
@@ -33,8 +33,8 @@ graph TD
         H["htmx<br/>hx-post=(like) の戻り値<br/>= /actions/&lt;random-id&gt;"]
     end
 
-    subgraph "利用者が構成 (Lack Builder) — 本ライブラリ外"
-        MW["mount middleware<br/>(:mount &quot;/actions&quot; *actions-app*)"]
+    subgraph "利用者が構成 (Lack Builder)"
+        MW["*actions-middleware*<br/>(ライブラリ提供 / /actions にマウント)"]
         MAIN["本体 ningle アプリ<br/>(通常ルート)"]
     end
 
@@ -53,7 +53,7 @@ graph TD
     DISP -->|"HTML フラグメント / HX-* ヘッダ"| H
 ```
 
-- mount ミドルウェア（利用者が builder に記述）は `path-info` が `/actions` に一致すると接頭辞を除去してアクションアプリへ委譲する（`/actions/<id>` → アクションアプリには `/<id>` として届く）。
+- `*actions-middleware*`（利用者が builder に置く、ライブラリ提供の mount ミドルウェア）は `path-info` が `/actions` に一致すると接頭辞を除去してアクションアプリへ委譲する（`/actions/<id>` → アクションアプリには `/<id>` として届く）。
 - アクションアプリは `/:action_id` ルートひとつだけを持ち、`action_id` をレジストリで引いてハンドラを呼ぶ。
 
 ### 1.2 シングルトンアプリと利用フロー
@@ -63,11 +63,11 @@ graph TD
     LOAD["ライブラリのロード"] -->|"シングルトンを生成"| APP["*actions-app* : actions-app"]
     DEF["defaction (app 指定なし)"] -->|"*actions-app* に登録"| APP
     DEF -->|"endpoint 関数を定義"| FN["(like) ⇒ \"/actions/&lt;id&gt;\""]
-    USER["利用者"] -->|"*actions-app* をそのまま mount<br/>(スコープ外)"| MOUNT["(:mount \"/actions\" *actions-app*)"]
+    USER["利用者"] -->|"*actions-middleware* を builder に置く"| MOUNT["*actions-middleware*<br/>(/actions にマウント)"]
 ```
 
 - `*actions-app*`（`ningle-actions:*actions-app*`）はライブラリが提供するシングルトンのアクションアプリ。ロード時に単一ルート登録済みのインスタンスとして確定する。
-- 利用者はインスタンスを生成・保持しない。`*actions-app*` をそのまま `defaction` の登録先・mount 対象として使う。
+- 利用者はインスタンスを生成・保持しない。`*actions-app*` をそのまま `defaction` の登録先として使い、マウントは `*actions-middleware*` を builder に置くだけでよい。
 - `defaction` は `*actions-app*` に登録する。
 - 内部コンストラクタ `make-actions-app`（非公開）は副作用のない純粋関数で、シングルトンの生成とテスト時の隔離インスタンス生成に用いる。
 
@@ -75,7 +75,7 @@ graph TD
 
 接頭辞は **`/actions` 固定**（定数）。mount ミドルウェアは `path-info` を書き換えるが `script-name` は更新しない（実装で確認済み）ため接頭辞を実行時に取得できないが、固定値なのでエンドポイント生成関数は定数を前置するだけでよい。
 
-> 契約: 利用者は `(:mount "/actions" *actions-app*)` で **`/actions`** にマウントする（エンドポイント関数の返す URL と一致させるため）。mount 配線自体は利用者責務。
+> 契約: マウントは **`/actions` 固定**（エンドポイント関数の返す URL と一致させるため）。ライブラリ提供の `*actions-middleware*` がこの接頭辞を内包するので、利用者は builder に置くだけで接頭辞ずれが起きない。
 
 ---
 
@@ -84,7 +84,7 @@ graph TD
 ```mermaid
 sequenceDiagram
     participant C as htmx クライアント
-    participant Mnt as mount MW (利用者構成)
+    participant Mnt as *actions-middleware*
     participant N as *actions-app* (ningle dispatch)
     participant D as ディスパッチャ
     participant Reg as レジストリ
@@ -160,15 +160,12 @@ classDiagram
 ```mermaid
 graph TD
     MAIN["ningle-actions/main<br/>公開 API 集約・再エクスポート"]
-    APP["ningle-actions/app<br/>actions-app・registry・dispatch・*actions-app* シングルトン・(内部) make-actions-app・定数"]
-    ACTION["ningle-actions/action<br/>defaction マクロ・endpoint 関数生成"]
+    CORE["ningle-actions/core<br/>actions-app・registry・dispatch・*actions-app* シングルトン・*actions-middleware*・(内部) make-actions-app・定数・defaction マクロ・endpoint 関数生成"]
 
-    MAIN --> ACTION
-    MAIN --> APP
-    ACTION --> APP
+    MAIN --> CORE
 ```
 
-### 4.1 `app`（actions-app / registry / dispatch / グローバル）
+### 4.1 `core`（actions-app / registry / dispatch / グローバル）
 - 定数: `+actions-prefix+` = `"/actions"`。
 - `actions-app` クラス（`ningle:app` 継承）。スロット: `registry` / `name-index`。
 - `make-actions-app ()`（**内部・非公開**）:
@@ -179,7 +176,8 @@ graph TD
           (lambda (params) (dispatch-action app params)))
     ```
   - **副作用を持たず**、生成したインスタンスを返すだけ。
-- `*actions-app*` : ライブラリが提供するシングルトンのアクションアプリ（特殊変数）。ロード時に `(make-actions-app)` の戻り値で確定する（`defvar`。再評価時も既存インスタンスと登録済みアクションを保持）。`defaction` の暗黙の登録先であり、利用者はこれをそのまま mount する。
+- `*actions-app*` : ライブラリが提供するシングルトンのアクションアプリ（特殊変数）。ロード時に `(make-actions-app)` の戻り値で確定する（`defvar`。再評価時も既存インスタンスと登録済みアクションを保持）。`defaction` の暗黙の登録先。
+- `*actions-middleware*` : `*actions-app*` を固定 prefix `/actions` でマウントする Lack ミドルウェア（`(lambda (app) (funcall *lack-middleware-mount* app "/actions" *actions-app*))`）。利用者は `lack:builder` のチェインにこれを置くだけでアクションアプリを組み込める。
 - `register-action (app name method handler)`:
   - `name-index` を引き、既存があればその `action_id` を再利用、なければ `generate-random-id` で採番。
   - レジストリへ `Action` を登録し、`action_id` を返す。
@@ -191,7 +189,7 @@ graph TD
   3. 実リクエストメソッド（`request-method *request*`）とアクションの `method` を照合。不一致なら `(405 () ("Method Not Allowed"))`。
   4. 一致すれば `(funcall (action-handler action) params)` の戻り値を**そのまま返す**（整形は ningle に委ねる）。
 
-### 4.2 `action`（defaction / endpoint 関数生成）
+### 4.2 `defaction` / endpoint 関数生成
 - `defaction` マクロ（API は §5）。展開で:
   1. 本体を `(lambda (params) ...)` にまとめる。
   2. `register-action` で `*actions-app*` へ登録し `action_id` を確定（再定義時は再利用）。
@@ -243,11 +241,11 @@ graph TD
 (like :id 42)  ;=> "/actions/3f9a...c2?id=42"
 ```
 
-統合（利用者が行う・スコープ外）:
+統合（`*actions-middleware*` を builder に置くだけ）:
 ```lisp
 (defparameter *web-app*
   (lack:builder
-    (:mount "/actions" *actions-app*)
+    *actions-middleware*
     *web*))
 ```
 
@@ -274,7 +272,16 @@ graph TD
 ```lisp
 *actions-app*
   ;; => actions-app（単一ルート /:action_id 登録済み）のシングルトン。
-  ;;    ロード時に確定。defaction の登録先であり、これをそのまま mount する。
+  ;;    ロード時に確定。defaction の登録先。マウントは *actions-middleware* 経由。
+```
+
+### 5.2.1 `*actions-middleware*`
+
+```lisp
+*actions-middleware*
+  ;; => (lambda (app) (funcall *lack-middleware-mount* app "/actions" *actions-app*))
+  ;;    *actions-app* を固定接頭辞 /actions でマウントする Lack ミドルウェア。
+  ;;    利用者は lack:builder のチェインに置くだけでよい。
 ```
 
 ### 5.3 公開シンボル（`ningle-actions` パッケージ）
@@ -282,13 +289,14 @@ graph TD
 | シンボル | 種別 | 概要 |
 |----------|------|------|
 | `defaction` | マクロ | アクション登録 + エンドポイント関数定義 |
-| `*actions-app*` | 変数 | シングルトンのアクションアプリ。`defaction` の登録先・mount 対象 |
+| `*actions-middleware*` | 変数 | `*actions-app*` を `/actions` にマウントする Lack ミドルウェア |
+| `*actions-app*` | 変数 | シングルトンのアクションアプリ。`defaction` の登録先 |
 | `actions-app` | クラス | アクションアプリ型 |
 
 > `make-actions-app` は内部コンストラクタとし公開しない（シングルトン生成・テストの隔離インスタンス生成に用いる）。
 
 > `action-endpoint`（`(id &optional query)` → 完全 URL）は内部ヘルパとし公開しない。`action_id` は不透明な内部値で利用者は保持せず、URL は `defaction` が定義する同名関数経由でのみ取得する。
-> マウント用ヘルパ・htmx ヘルパ・型強制/バリデーション API も提供しない（mount は利用者責務、HX-* と `params` は ningle 標準のまま扱う）。
+> マウントは `*actions-middleware*` のみを提供する（接頭辞 `/actions` 固定の薄いラッパ）。htmx ヘルパ・型強制/バリデーション API は提供しない（HX-* と `params` は ningle 標準のまま扱う）。
 
 ---
 

@@ -1,4 +1,4 @@
-(uiop:define-package #:ningle-actions/app
+(uiop:define-package #:ningle-actions/core
   (:use #:cl)
   (:import-from #:ningle
                 #:app
@@ -15,10 +15,11 @@
                 #:render-uri)
   (:import-from #:alexandria
                 #:plist-alist)
-  (:export #:actions-app
+  (:export #:defaction
+           #:actions-app
            #:*actions-app*
            #:*actions-middleware*))
-(in-package #:ningle-actions/app)
+(in-package #:ningle-actions/core)
 
 (defparameter +actions-prefix+ "/actions"
   "Mount prefix of the actions app (fixed). Prepended to endpoint URLs.
@@ -103,9 +104,30 @@ isolated apps."
 (defvar *actions-app* (make-actions-app)
   "The singleton actions app, created at load time with its dispatch route
 registered. defaction registers into it implicitly, and you mount it into your
-host app with (:mount \"/actions\" *actions-app*). Tests may rebind it to an
-isolated instance built with make-actions-app.")
+host app with *actions-middleware*. Tests may rebind it to an isolated instance
+built with make-actions-app.")
 
 (defvar *actions-middleware*
   (lambda (app)
-    (funcall *lack-middleware-mount* app "/actions" *actions-app*)))
+    (funcall *lack-middleware-mount* app "/actions" *actions-app*))
+  "A Lack middleware that mounts *actions-app* under the fixed /actions prefix.
+Add it to your lack:builder chain to wire up the actions app.")
+
+(defmacro defaction (name method (params) &body body)
+  "Register an action on *actions-app* and define a function NAME that returns
+its endpoint URL.
+
+  NAME   : action name. A function of this name is defined that, when called,
+           returns /actions/<id>. Keyword arguments passed to it are appended
+           to the URL as query parameters, e.g.
+           (NAME :category \"foo\" :page 2) => /actions/<id>?category=foo&page=2.
+  METHOD : accepted HTTP method keyword (:get :post :put :patch :delete).
+  PARAMS : variable name bound in the body to ningle's params (an alist).
+  BODY   : action body. May reference PARAMS and ningle:*request* etc."
+  (let ((id (gensym "ID")))
+    `(let ((,id (register-action *actions-app* ',name ,method
+                                 (lambda (,params)
+                                   (declare (ignorable ,params))
+                                   ,@body))))
+       (defun ,name (&rest query)
+         (action-endpoint ,id query)))))

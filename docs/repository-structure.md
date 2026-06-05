@@ -33,13 +33,11 @@ ningle-actions/
 │
 ├── src/                        # 実装 (1 ファイル = 1 パッケージ)
 │   ├── main.lisp               # ningle-actions / ningle-actions/main
-│   ├── app.lisp                # ningle-actions/app
-│   └── action.lisp             # ningle-actions/action
+│   └── core.lisp               # ningle-actions/core
 │
 └── tests/                      # テスト (rove)
-    ├── main.lisp               # ningle-actions-test / ningle-actions-test/main
-    ├── app.lisp                # ningle-actions-test/app
-    └── action.lisp             # ningle-actions-test/action
+    ├── core.lisp               # ningle-actions-test/core (単体)
+    └── integration.lisp        # ningle-actions-test/integration (統合)
 ```
 
 ---
@@ -51,18 +49,15 @@ ningle-actions/
 
 | ファイル | パッケージ | 役割 | 主な公開シンボル |
 |----------|-----------|------|------------------|
-| `src/app.lisp` | `ningle-actions/app` | `actions-app` クラス（`ningle:app` 継承）、`registry` / `name-index`、`*actions-app*` シングルトン、`make-actions-app`（内部・純粋コンストラクタ）、`register-action` / `find-action` / `dispatch-action` / `action-endpoint`（内部）、定数 `+actions-prefix+` | `actions-app` `*actions-app*`（`make-actions-app` / `action-endpoint` は内部） |
-| `src/action.lisp` | `ningle-actions/action` | `defaction` マクロ。本体クロージャ生成 → `register-action` 登録 → エンドポイント関数 `defun` | `defaction` |
+| `src/core.lisp` | `ningle-actions/core` | `actions-app` クラス（`ningle:app` 継承）、`registry` / `name-index`、`*actions-app*` シングルトン、`*actions-middleware*`、`make-actions-app`（内部・純粋コンストラクタ）、`register-action` / `find-action` / `dispatch-action` / `action-endpoint`（内部）、定数 `+actions-prefix+`、`defaction` マクロ | `defaction` `actions-app` `*actions-app*` `*actions-middleware*`（`make-actions-app` / `action-endpoint` は内部） |
 | `src/main.lisp` | `ningle-actions`（nick: `ningle-actions/main`） | 公開 API の集約・再エクスポート | （再エクスポートのみ） |
 
 ### 依存方向（循環禁止）
 ```
-main ──▶ action ──▶ app
-   └───────────────▶ app
+main ──▶ core
 ```
-- `app` は最下層（他の自モジュールに依存しない）。
-- `action` は `app` のみに依存。
-- `main` は両者を `use-reexport` で集約。
+- `core` は最下層（他の自モジュールに依存しない）。`actions-app`・dispatch・`defaction` を 1 パッケージにまとめる。
+- `main` は `core` を `use-reexport` で集約。
 
 ---
 
@@ -73,7 +68,7 @@ main ──▶ action ──▶ app
 - 利用者は `ningle-actions`（または短縮ニックを各自定義）から `defaction` / `make-actions-app` 等を参照する。
 
 ### main.lisp の集約方針
-- `uiop:define-package` の `:use-reexport` で `ningle-actions/app` と `ningle-actions/action` の公開シンボルをまとめて再エクスポートする。
+- `uiop:define-package` の `:use-reexport` で `ningle-actions/core` の公開シンボルをまとめて再エクスポートする。
 - 既存スケルトン（`:use #:cl` のみ）はこの方針に置き換える。
 
 ---
@@ -81,15 +76,14 @@ main ──▶ action ──▶ app
 ## 4. `tests/` の役割とファイル配置ルール
 
 - `:package-inferred-system`。ファイル `tests/foo.lisp` のパッケージは `ningle-actions-test/foo`。
-- テストは対象モジュールに対応させる（`tests/app.lisp` ↔ `src/app.lisp`）。
+- 単体テストは対象モジュールに対応させる（`tests/core.lisp` ↔ `src/core.lisp`）。統合テストは `tests/integration.lisp` に独立して置く。
 - HTTP レベルの検証は `lack/test`（`clack.test` 相当）やリクエスト生成ユーティリティ、または `ningle` の `to-app` + テスト用 env を用いる。
-- `tests/main.lisp` をテスト集約点とし、`ningle-actions-test.asd` の `test-op` から `rove:run` する。
+- `ningle-actions-test.asd` の `test-op` から `rove:run` する。
 
 | ファイル | 検証対象 |
 |----------|----------|
-| `tests/app.lisp` | `make-actions-app` / レジストリ登録・検索 / `dispatch-action`（404・405・正常）/ `action-endpoint` / `action_id` 再利用 |
-| `tests/action.lisp` | `defaction` 展開（登録 + エンドポイント関数定義）/ `params` 受領 / メソッド指定 |
-| `tests/main.lisp` | 公開 API の統合的な動作・集約 |
+| `tests/core.lisp` | `make-actions-app` / レジストリ登録・検索 / `action-endpoint` / `action_id` 再利用 / `defaction` 展開（登録 + エンドポイント関数定義）/ `params` 受領 / メソッド指定 |
+| `tests/integration.lisp` | `*actions-app*` を `lack:builder` でマウントした統合動作（正常・404・405・prefix 不一致時の passthrough） |
 
 ---
 
