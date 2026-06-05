@@ -3,9 +3,12 @@
   (:import-from #:ningle
                 #:app
                 #:route
-                #:*request*)
+                #:*request*
+                #:*response*)
   (:import-from #:lack/request
                 #:request-method)
+  (:import-from #:lack/response
+                #:response-status)
   (:import-from #:lack/util
                 #:generate-random-id)
   (:import-from #:lack/middleware/mount
@@ -78,15 +81,19 @@ non-nil, it is appended as a URL-encoded query string; otherwise the bare
 
 (defun dispatch-action (app params)
   "Handler for the single /:action_id route. Looks up the action by action_id,
-checks the method, and calls the handler. The return value is passed through
-unchanged and left to ningle to turn into a response."
+checks the method, and calls the handler. On error the status is set on
+*response* and nil is returned (empty body); otherwise the handler's return
+value is passed through unchanged and left to ningle to turn into a
+response."
   (let* ((id (cdr (assoc :action_id params)))
          (action (and id (find-action app id))))
     (cond
       ((null action)
-       '(404 () ("Not Found")))
+       (setf (response-status *response*) 404)
+       nil)
       ((not (eq (action-method action) (request-method *request*)))
-       '(405 () ("Method Not Allowed")))
+       (setf (response-status *response*) 405)
+       nil)
       (t
        (funcall (action-handler action) params)))))
 
