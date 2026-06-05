@@ -8,6 +8,11 @@
                 #:request-method)
   (:import-from #:lack/util
                 #:generate-random-id)
+  (:import-from #:quri
+                #:make-uri
+                #:render-uri)
+  (:import-from #:alexandria
+                #:plist-alist)
   (:export #:actions-app
            #:*app*
            #:make-action-app))
@@ -52,9 +57,25 @@ keeps endpoint URLs stable."
           (%make-action :id id :name name :method method :handler handler))
     id))
 
-(defun action-endpoint (id)
-  "Build the full endpoint URL string (/actions/<id>) from an action_id."
-  (concatenate 'string +action-prefix+ "/" id))
+(defun query-params-alist (plist)
+  "Convert a plist of keyword/value pairs into an alist suitable for
+quri:make-uri's :query. Keys become lowercased keyword-name strings; values
+are coerced with princ-to-string (quri's url-encode-params requires string
+keys and string/number values). Order follows the plist."
+  (mapcar (lambda (pair)
+            (cons (string-downcase (symbol-name (car pair)))
+                  (princ-to-string (cdr pair))))
+          (plist-alist plist)))
+
+(defun action-endpoint (id &optional query)
+  "Build the full endpoint URL string (/actions/<id>) from an action_id,
+assembled with quri:make-uri. If QUERY (a plist of keyword/value pairs) is
+non-nil, it is appended as a URL-encoded query string; otherwise the bare
+/actions/<id> is returned."
+  (let ((path (concatenate 'string +action-prefix+ "/" id)))
+    (if query
+        (render-uri (make-uri :path path :query (query-params-alist query)))
+        path)))
 
 (defun dispatch-action (app params)
   "Handler for the single /:action_id route. Looks up the action by action_id,

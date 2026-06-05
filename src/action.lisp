@@ -12,7 +12,9 @@
 endpoint URL.
 
   NAME   : action name. A function of this name is defined that, when called,
-           returns /actions/<id>.
+           returns /actions/<id>. Keyword arguments passed to it are appended
+           to the URL as query parameters, e.g.
+           (NAME :category \"foo\" :page 2) => /actions/<id>?category=foo&page=2.
   METHOD : accepted HTTP method keyword (:get :post :put :patch :delete).
   PARAMS : variable name bound in the body to ningle's params (an alist).
   BODY   : action body. May reference PARAMS and ningle:*request* etc."
@@ -21,5 +23,5 @@ endpoint URL.
                                  (lambda (,params)
                                    (declare (ignorable ,params))
                                    ,@body))))
-       (defun ,name ()
-         (action-endpoint ,id)))))
+       (defun ,name (&rest query)
+         (action-endpoint ,id query)))))

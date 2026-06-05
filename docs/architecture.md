@@ -19,9 +19,12 @@
 |------------|------|-------------------------------|
 | **ningle** | ベース Web フレームワーク。`app` クラス継承、`route` によるルート登録、`*request*` / `*response*` / `*session*` / `*context*` の参照 | `ql-2024-10-12` |
 | **lack** | `lack/request:request-method`（メソッド照合）、`lack/util:generate-random-id`（`action_id` のランダム生成。内部で ironclad を使用） | `ql-2026-01-01` |
+| **quri** | エンドポイント関数のクエリパラメータ付き URL 組み立て（`make-uri` / `render-uri`）と URL エンコード | `ql-2026-01-01` |
+| **alexandria** | plist→alist 変換（`plist-alist`）。クエリパラメータの正規化に使用 | `ql-2026-01-01` |
 
-- `ironclad`・`alexandria`・`cl-ppcre`・`myway`・`bordeaux-threads` 等は ningle / lack の推移的依存として導入される（直接依存に加えない）。
-- 依存は **ningle と lack の 2 つに限定**し、導入障壁を最小化する（ビジネス要件・NFR1）。
+- `quri` と `alexandria` は ningle / lack の推移的依存でもあるが、本ライブラリが直接 import するため `qlfile` に明示する。
+- `ironclad`・`cl-ppcre`・`myway`・`bordeaux-threads` 等は ningle / lack の推移的依存として導入される（直接依存に加えない）。
+- 直接依存は **ningle / lack / quri / alexandria** に限定し、導入障壁を最小化する（ビジネス要件・NFR1）。
 
 ### 1.3 開発・テスト依存
 | ライブラリ/ツール | 用途 |

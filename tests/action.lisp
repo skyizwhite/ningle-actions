@@ -39,6 +39,20 @@
         (defaction act-c :post (params) (declare (ignore params)) "v2")
         (ok (string= url1 (act-c)))))))
 
+(deftest defaction-endpoint-function-query
+  (testing "the endpoint function appends keyword args as query parameters"
+    (let ((*app* (make-action-app)))
+      (defaction list-items :get (params) (declare (ignore params)) "ok")
+      (testing "no args keeps the bare /actions/<id> (backward compatible)"
+        (ok (null (position #\? (list-items)))))
+      (let ((base (list-items)))
+        (testing "a single keyword arg yields ?key=value"
+          (ok (string= (concatenate 'string base "?category=foo")
+                       (list-items :category "foo"))))
+        (testing "multiple keyword args are joined in order"
+          (ok (string= (concatenate 'string base "?category=foo&page=2")
+                       (list-items :category "foo" :page 2))))))))
+
 (deftest defaction-passes-params
   (testing "the handler receives ningle's params (alist)"
     (let ((*app* (make-action-app)))

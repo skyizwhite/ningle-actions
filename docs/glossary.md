@@ -16,7 +16,8 @@
 | レジストリ | Registry | `registry` | `action_id` → アクション のハッシュテーブル。 |
 | ネームインデックス | Name index | `name-index` | アクション名（シンボル）→ `action_id` の対応表。再定義時に `action_id` を再利用するために用いる。 |
 | エンドポイント | Endpoint | `endpoint` | アクションを呼び出すための URL。`/actions/<action_id>`。 |
-| エンドポイント関数 | Endpoint function | （アクション名と同名の関数） | `defaction` が定義する、エンドポイント URL 文字列を返す関数。利用者はこれ経由で URL を参照する。 |
+| エンドポイント関数 | Endpoint function | （アクション名と同名の関数） | `defaction` が定義する、エンドポイント URL 文字列を返す関数。利用者はこれ経由で URL を参照する。キーワード引数を渡すと、そのキー・値がクエリパラメータとして URL に付加される。 |
+| クエリパラメータ | Query parameter | （エンドポイント関数のキーワード引数） | エンドポイント関数に渡すキーワード引数。キーは小文字化した名前、値は文字列化され、URL エンコードして `?key=value` 形式で URL に付加される。 |
 | ディスパッチ | Dispatch | `dispatch-action` | 単一ルート `/:action_id` に届いたリクエストを、`action_id` でレジストリを引いて対応ハンドラへ振り分ける処理。 |
 | ハンドラ | Handler | `handler` | アクション本体を包む、`params` を受け取るクロージャ。 |
 | 接頭辞 | Prefix | `+action-prefix+` | アクションアプリのマウント位置。固定値 `"/actions"`。 |

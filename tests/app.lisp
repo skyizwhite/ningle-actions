@@ -44,4 +44,20 @@
 
 (deftest action-endpoint-format
   (testing "returns the /actions/<id> form"
-    (ok (string= "/actions/abc123" (action-endpoint "abc123")))))
+    (ok (string= "/actions/abc123" (action-endpoint "abc123"))))
+  (testing "an empty query is treated as no query"
+    (ok (string= "/actions/abc123" (action-endpoint "abc123" nil)))))
+
+(deftest action-endpoint-query
+  (testing "a single keyword/value becomes ?key=value"
+    (ok (string= "/actions/abc123?category=foo"
+                 (action-endpoint "abc123" '(:category "foo")))))
+  (testing "multiple pairs are joined with & in argument order"
+    (ok (string= "/actions/abc123?category=foo&page=2"
+                 (action-endpoint "abc123" '(:category "foo" :page 2)))))
+  (testing "non-string values are coerced to their printed representation"
+    (ok (string= "/actions/abc123?page=2"
+                 (action-endpoint "abc123" '(:page 2)))))
+  (testing "keys and values are URL-encoded"
+    (ok (string= "/actions/abc123?q=a%20b%26c"
+                 (action-endpoint "abc123" '(:q "a b&c"))))))

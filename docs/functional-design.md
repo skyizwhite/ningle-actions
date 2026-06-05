@@ -182,7 +182,8 @@ graph TD
 - `register-action (app name method handler)`:
   - `name-index` を引き、既存があればその `action_id` を再利用、なければ `generate-random-id` で採番。
   - レジストリへ `Action` を登録し、`action_id` を返す。
-- `find-action (app id)` / `action-endpoint (id)` = `(concatenate 'string +action-prefix+ "/" id)`。
+- `find-action (app id)`。
+- `action-endpoint (id &optional query)`：`/actions/<id>` を組み立てて返す。`query`（キーワード/値の plist）が与えられた場合は `quri:make-uri` / `quri:render-uri` で URL エンコード済みのクエリ文字列を付加する（`(action-endpoint id '(:category "foo" :page 2))` → `/actions/<id>?category=foo&page=2`）。`query` が `nil` のときは従来どおり `/actions/<id>` を返す。キーはキーワード名の小文字文字列、値は `princ-to-string` で文字列化する。
 - `dispatch-action (app params)`:
   1. `action_id` を `(cdr (assoc :action_id params))` で取得。
   2. レジストリ検索。なければ `(404 () ("Not Found"))`。
@@ -193,7 +194,7 @@ graph TD
 - `defaction` マクロ（API は §5）。展開で:
   1. 本体を `(lambda (params) ...)` にまとめる。
   2. `register-action` で `*app*` へ登録し `action_id` を確定（再定義時は再利用）。
-  3. `action_id` から完全エンドポイント（`/actions/<id>`）を返す関数 `name` を `defun`。
+  3. `action_id` から完全エンドポイント（`/actions/<id>`）を返す関数 `name` を `defun`。この関数は `&rest` でキーワード引数を受け取り、`action-endpoint` に渡してクエリパラメータ付き URL を組み立てる。
 
 ### 4.3 htmx レスポンス制御について（ライブラリ対象外）
 
@@ -218,7 +219,7 @@ graph TD
 (defaction NAME METHOD (PARAMS) &body BODY)
 ```
 
-- `NAME` : シンボル。**この名前の関数が定義され、呼ぶとエンドポイント URL 文字列を返す**。アクションのレジストリ名でもある。
+- `NAME` : シンボル。**この名前の関数が定義され、呼ぶとエンドポイント URL 文字列を返す**。アクションのレジストリ名でもある。キーワード引数を渡すと、そのキー・値が URL エンコードされてクエリパラメータとして付加される（`(NAME :category "foo" :page 2)` → `/actions/<id>?category=foo&page=2`）。
 - `METHOD` : HTTP メソッドキーワード（位置引数）。`:post` `:get` `:put` `:patch` `:delete`。
 - `(PARAMS)` : 本体で束縛するパラメータ変数名を 1 つ持つリスト。`BODY` 内でこの名前により ningle の `params`（alist）を参照する。
 - `BODY` : `PARAMS` が束縛された状態で評価。`ningle:*request*` `*response*` `*session*` `*context*` も参照可能。
@@ -237,6 +238,9 @@ graph TD
 
 ;; ↓ defaction が定義した関数。URL を意識せず参照できる
 (like)  ;=> "/actions/3f9a...c2"   (ランダム id)
+
+;; キーワード引数はクエリパラメータとして付加される
+(like :id 42)  ;=> "/actions/3f9a...c2?id=42"
 ```
 
 統合（利用者が行う・スコープ外）:
@@ -262,7 +266,7 @@ graph TD
                                                (cdr (assoc "id" params :test #'string=)))))
                                       (incf (gethash id *likes* 0))
                                       (render-like-button id))))))
-    (defun like () (action-endpoint #1#))))
+    (defun like (&rest query) (action-endpoint #1# query))))
 ```
 
 ### 5.2 `make-action-app`
@@ -281,7 +285,7 @@ graph TD
 | `*app*` | 変数 | 現在のグローバルアクションアプリ |
 | `actions-app` | クラス | アクションアプリ型 |
 
-> `action-endpoint`（`(id)` → 完全 URL）は内部ヘルパとし公開しない。`action_id` は不透明な内部値で利用者は保持せず、URL は `defaction` が定義する同名関数経由でのみ取得する。
+> `action-endpoint`（`(id &optional query)` → 完全 URL）は内部ヘルパとし公開しない。`action_id` は不透明な内部値で利用者は保持せず、URL は `defaction` が定義する同名関数経由でのみ取得する。
 > マウント用ヘルパ・htmx ヘルパ・型強制/バリデーション API も提供しない（mount は利用者責務、HX-* と `params` は ningle 標準のまま扱う）。
 
 ---

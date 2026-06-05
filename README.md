@@ -15,7 +15,8 @@ attributes like `hx-post`.
 ## Features
 
 - **URL-free**: `(like)` returns the endpoint URL. The URL stays stable across
-  redefinitions.
+  redefinitions. Pass keyword arguments to append them as query parameters
+  (`(like :id 42)` → `/actions/…?id=42`).
 - **Single endpoint**: the actions app exposes only one route, `/:action_id`,
   and dispatches by id.
 - **Idiomatic ningle**: the action body receives ningle's `params` (an alist)
@@ -65,6 +66,26 @@ On the view side (htmx), embed the return value of `(like)`
 
 Run `*app*` with a Clack handler (Hunchentoot / Woo, etc.) and it works.
 
+### Query parameters
+
+The generated function accepts keyword arguments and appends them to the URL
+as URL-encoded query parameters (handy for `:get` actions that take filters
+or paging). Keys become lowercased names, values are stringified, and order is
+preserved:
+
+```lisp
+(na:defaction list-items :get (params)
+  (let ((category (cdr (assoc "category" params :test #'string=))))
+    ...))
+
+(list-items)                          ;=> "/actions/3f9a…c2"
+(list-items :category "foo")          ;=> "/actions/3f9a…c2?category=foo"
+(list-items :category "foo" :page 2)  ;=> "/actions/3f9a…c2?category=foo&page=2"
+```
+
+On the server side these arrive in ningle's `params` exactly like any other
+query string — no special handling.
+
 ### HTTP methods
 
 The second argument of `defaction` is the method (`:get` `:post` `:put`
@@ -75,7 +96,7 @@ unknown id returns `404`.
 
 | Symbol | Kind | Description |
 |--------|------|-------------|
-| `defaction` | macro | `(defaction NAME METHOD (PARAMS) &body BODY)`. Registers an action and defines a same-named function returning the URL |
+| `defaction` | macro | `(defaction NAME METHOD (PARAMS) &body BODY)`. Registers an action and defines a same-named function returning the URL; keyword arguments to that function become query parameters |
 | `make-action-app` | function | Creates an actions app, sets `*app*`, and returns it (no arguments) |
 | `*app*` | variable | The current actions app; the implicit target of `defaction` |
 | `actions-app` | class | The actions app type (a `ningle:app` subclass) |
