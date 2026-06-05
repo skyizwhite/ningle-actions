@@ -109,7 +109,7 @@ built with make-actions-app.")
 
 (defvar *actions-middleware*
   (lambda (app)
-    (funcall *lack-middleware-mount* app "/actions" *actions-app*))
+    (funcall *lack-middleware-mount* app +actions-prefix+ *actions-app*))
   "A Lack middleware that mounts *actions-app* under the fixed /actions prefix.
 Add it to your lack:builder chain to wire up the actions app.")
 
