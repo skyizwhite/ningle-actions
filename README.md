@@ -89,8 +89,7 @@ query string — no special handling.
 ### HTTP methods
 
 The second argument of `defaction` is the method (`:get` `:post` `:put`
-`:patch` `:delete`). A request with a mismatched method returns `405`, and an
-unknown id returns `404`.
+`:patch` `:delete`). An unknown id and a mismatched method both return `404`.
 
 ## API
 

@@ -48,13 +48,13 @@ and bind CALL-VAR to a function that issues a request as (method path &optional 
         (let ((res (funcall call :post "/actions/does-not-exist")))
           (ok (eql 404 (first res))))))))
 
-(deftest integration-method-not-allowed
-  (testing "a method mismatch returns 405"
+(deftest integration-method-mismatch
+  (testing "a method mismatch returns 404"
     (let ((*actions-app* (make-actions-app)))
       (defaction only-post :post (params) (declare (ignore params)) "ok")
       (with-mounted (call)
         (let ((res (funcall call :get (only-post))))
-          (ok (eql 405 (first res))))))))
+          (ok (eql 404 (first res))))))))
 
 (deftest integration-passthrough
   (testing "a path not matching the prefix falls through to the main app"

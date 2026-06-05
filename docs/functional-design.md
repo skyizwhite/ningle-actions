@@ -96,13 +96,9 @@ sequenceDiagram
     N->>D: /:action_id 一致 → dispatch(params)
     D->>D: action_id = (cdr (assoc :action_id params))
     D->>Reg: action_id を検索
-    alt 見つからない
-        Reg-->>D: なし
-        D-->>C: 404 (Clack リスト)
-    else メソッド不一致
-        Reg-->>D: アクション (method=:post)
-        D->>D: 実 method と照合 ⇒ NG
-        D-->>C: 405 (Clack リスト)
+    alt 見つからない or メソッド不一致
+        Reg-->>D: なし / method 不一致
+        D-->>C: 404 (*response* に status 設定・空 body)
     else 一致
         Reg-->>D: アクション (handler)
         D->>B: (funcall handler params)
@@ -114,7 +110,7 @@ sequenceDiagram
 
 ディスパッチャは戻り値を加工せずそのまま返し、**整形は ningle の `process-response` に委ねる**:
 - ハンドラが **文字列**を返すと `*response*` の body に設定され finalize される（content-type 等は `*response*` の状態に依存。既定では未設定）。
-- ハンドラが **Clack 形式リスト** `(status headers body)` を返すとそのまま通る（404/405 応答や任意ステータスに利用）。
+- ハンドラが **Clack 形式リスト** `(status headers body)` を返すとそのまま通る（任意ステータスに利用）。
 - content-type を `text/html` 等にしたい場合は、利用者が本体内で `*response*` を操作する（ライブラリは関与しない）。
 
 > `params` はディスパッチャが ningle から受け取った alist をそのまま渡す。フォーム/クエリ値は文字列キー（`"id"`）、ルートパラメータ `:action_id` はキーワードキーで含まれる（ningle の流儀に一致）。
@@ -185,9 +181,9 @@ graph TD
 - `action-endpoint (id &optional query)`：`/actions/<id>` を組み立てて返す。`query`（キーワード/値の plist）が与えられた場合は `quri:make-uri` / `quri:render-uri` で URL エンコード済みのクエリ文字列を付加する（`(action-endpoint id '(:category "foo" :page 2))` → `/actions/<id>?category=foo&page=2`）。`query` が `nil` のときは従来どおり `/actions/<id>` を返す。キーはキーワード名の小文字文字列、値は `princ-to-string` で文字列化する。
 - `dispatch-action (app params)`:
   1. `action_id` を `(cdr (assoc :action_id params))` で取得。
-  2. レジストリ検索。なければ `(404 () ("Not Found"))`。
-  3. 実リクエストメソッド（`request-method *request*`）とアクションの `method` を照合。不一致なら `(405 () ("Method Not Allowed"))`。
-  4. 一致すれば `(funcall (action-handler action) params)` の戻り値を**そのまま返す**（整形は ningle に委ねる）。
+  2. レジストリ検索。
+  3. アクションがあり、実リクエストメソッド（`request-method *request*`）とアクションの `method` が一致すれば `(funcall (action-handler action) params)` の戻り値を**そのまま返す**（整形は ningle に委ねる）。
+  4. 未登録 id・メソッド不一致のいずれも `*response*` に 404 を設定し `nil`（空 body）を返す。
 
 ### 4.2 `defaction` / endpoint 関数生成
 - `defaction` マクロ（API は §5）。展開で:
@@ -305,9 +301,9 @@ graph TD
 ```mermaid
 flowchart TD
     START["dispatch-action"] --> FIND{"action_id 登録あり?"}
-    FIND -->|"なし"| E404["404 Not Found"]
+    FIND -->|"なし"| E404["404 Not Found (空 body)"]
     FIND -->|"あり"| METHOD{"method 一致?"}
-    METHOD -->|"不一致"| E405["405 Method Not Allowed"]
+    METHOD -->|"不一致"| E404
     METHOD -->|"一致"| BODY["本体評価 (params)"]
     BODY -->|"戻り値"| PR["ningle process-response が整形"]
     PR -->|"文字列"| OK["body 化 (status 200)"]
@@ -315,7 +311,7 @@ flowchart TD
     BODY -->|"本体内エラー"| UP["上位 (ningle/Lack) へ伝播"]
 ```
 
-- ディスパッチ段の 404 / 405 のみライブラリが応答する。
+- ディスパッチ段の 404（未登録 id・メソッド不一致）のみライブラリが応答する。
 - レスポンス整形は ningle に委譲（ライブラリは戻り値を加工しない）。
 - 入力検証・型変換は本体（利用者コード）の責務。本体内エラーは握りつぶさず上位へ委ねる（NFR4・デバッグ容易性）。
 

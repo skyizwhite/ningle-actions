@@ -83,7 +83,7 @@ main ──▶ core
 | ファイル | 検証対象 |
 |----------|----------|
 | `tests/core.lisp` | `make-actions-app` / レジストリ登録・検索 / `action-endpoint` / `action_id` 再利用 / `defaction` 展開（登録 + エンドポイント関数定義）/ `params` 受領 / メソッド指定 |
-| `tests/integration.lisp` | `*actions-app*` を `lack:builder` でマウントした統合動作（正常・404・405・prefix 不一致時の passthrough） |
+| `tests/integration.lisp` | `*actions-app*` を `lack:builder` でマウントした統合動作（正常・404（未登録 id・メソッド不一致）・prefix 不一致時の passthrough） |
 
 ---
 

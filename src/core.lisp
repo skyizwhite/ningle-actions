@@ -80,22 +80,16 @@ non-nil, it is appended as a URL-encoded query string; otherwise the bare
         path)))
 
 (defun dispatch-action (app params)
-  "Handler for the single /:action_id route. Looks up the action by action_id,
-checks the method, and calls the handler. On error the status is set on
-*response* and nil is returned (empty body); otherwise the handler's return
-value is passed through unchanged and left to ningle to turn into a
-response."
+  "Handler for the single /:action_id route. Calls the action's handler when the
+action_id is known and the request method matches; otherwise sets a 404 on
+*response* and returns nil (empty body)."
   (let* ((id (cdr (assoc :action_id params)))
          (action (and id (find-action app id))))
-    (cond
-      ((null action)
-       (setf (response-status *response*) 404)
-       nil)
-      ((not (eq (action-method action) (request-method *request*)))
-       (setf (response-status *response*) 405)
-       nil)
-      (t
-       (funcall (action-handler action) params)))))
+    (if (and action (eq (action-method action) (request-method *request*)))
+        (funcall (action-handler action) params)
+        (progn
+          (setf (response-status *response*) 404)
+          nil))))
 
 (defun make-actions-app ()
   "Create a fresh actions-app with the single /:action_id route registered for
