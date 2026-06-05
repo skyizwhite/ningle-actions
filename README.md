@@ -23,8 +23,8 @@ attributes like `hx-post`.
   as-is. No custom argument convention, no type coercion.
 - **Thin**: response shaping is delegated to ningle; htmx header tweaks use
   `*response*` directly.
-- **Integrate by mounting**: `actions-app` is a `ningle:app` subclass; mount it
-  into your host app with `lack:builder`'s `:mount`.
+- **Integrate in one line**: drop the ready-made `*actions-middleware*` into
+  your `lack:builder` chain and the actions app is mounted for you.
 
 ## Usage
 
@@ -46,14 +46,14 @@ attributes like `hx-post`.
     ;; Return an HTML fragment (any generation method works).
     (format nil "<button>&#9829; ~A</button>" (gethash id *likes*))))
 
-;; 2. Mount the singleton into the host app (wiring the mount is the user's
-;;    responsibility). The prefix is fixed to /actions.
+;; 2. Add the actions middleware to your host app. It mounts the singleton
+;;    actions app under the fixed /actions prefix for you — no manual wiring.
 (defparameter *web* (make-instance 'ningle:app))
 ;; ... set up the host's normal routes ...
 
 (defparameter *web-app*
   (lack:builder
-    (:mount "/actions" na:*actions-app*)   ; must be "/actions" (the fixed prefix)
+    na:*actions-middleware*
     *web*))
 ```
 
@@ -97,7 +97,8 @@ unknown id returns `404`.
 | Symbol | Kind | Description |
 |--------|------|-------------|
 | `defaction` | macro | `(defaction NAME METHOD (PARAMS) &body BODY)`. Registers an action on `*actions-app*` and defines a same-named function returning the URL; keyword arguments to that function become query parameters |
-| `*actions-app*` | variable | The singleton actions app, created at load time. The implicit target of `defaction`; mount it with `(:mount "/actions" *actions-app*)` |
+| `*actions-middleware*` | variable | A Lack middleware that mounts `*actions-app*` under the fixed `/actions` prefix. Add it to your `lack:builder` chain to wire up the actions app |
+| `*actions-app*` | variable | The singleton actions app, created at load time. The implicit target of `defaction` |
 | `actions-app` | class | The actions app type (a `ningle:app` subclass) |
 
 ## Security

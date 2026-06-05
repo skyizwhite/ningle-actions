@@ -8,13 +8,16 @@
                 #:request-method)
   (:import-from #:lack/util
                 #:generate-random-id)
+  (:import-from #:lack/middleware/mount
+                #:*lack-middleware-mount*)
   (:import-from #:quri
                 #:make-uri
                 #:render-uri)
   (:import-from #:alexandria
                 #:plist-alist)
   (:export #:actions-app
-           #:*actions-app*))
+           #:*actions-app*
+           #:*actions-middleware*))
 (in-package #:ningle-actions/app)
 
 (defparameter +actions-prefix+ "/actions"
@@ -102,3 +105,7 @@ isolated apps."
 registered. defaction registers into it implicitly, and you mount it into your
 host app with (:mount \"/actions\" *actions-app*). Tests may rebind it to an
 isolated instance built with make-actions-app.")
+
+(defvar *actions-middleware*
+  (lambda (app)
+    (funcall *lack-middleware-mount* app "/actions" *actions-app*)))
