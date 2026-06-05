@@ -2,9 +2,9 @@
   (:use #:cl #:rove)
   (:import-from #:ningle-actions
                 #:defaction
-                #:make-actions-app
-                #:*app*)
+                #:*actions-app*)
   (:import-from #:ningle-actions/app
+                #:make-actions-app
                 #:find-action
                 #:action-method
                 #:action-handler))
@@ -12,7 +12,7 @@
 
 (deftest defaction-defines-endpoint-function
   (testing "a function named NAME returns /actions/<id>"
-    (let ((*app* (make-actions-app)))
+    (let ((*actions-app* (make-actions-app)))
       (defaction act-a :post (params)
         (declare (ignore params))
         "A")
@@ -21,19 +21,19 @@
 
 (deftest defaction-registers-handler
   (testing "defaction registers the handler in the registry"
-    (let ((*app* (make-actions-app)))
+    (let ((*actions-app* (make-actions-app)))
       (defaction act-b :put (params)
         (declare (ignore params))
         "B")
       (let* ((id (subseq (act-b) (length "/actions/")))
-             (action (find-action *app* id)))
+             (action (find-action *actions-app* id)))
         (ok action)
         (ok (eq :put (action-method action)))
         (ok (string= "B" (funcall (action-handler action) nil)))))))
 
 (deftest defaction-redefinition-keeps-url
   (testing "redefining the same action keeps the URL"
-    (let ((*app* (make-actions-app)))
+    (let ((*actions-app* (make-actions-app)))
       (defaction act-c :post (params) (declare (ignore params)) "v1")
       (let ((url1 (act-c)))
         (defaction act-c :post (params) (declare (ignore params)) "v2")
@@ -41,7 +41,7 @@
 
 (deftest defaction-endpoint-function-query
   (testing "the endpoint function appends keyword args as query parameters"
-    (let ((*app* (make-actions-app)))
+    (let ((*actions-app* (make-actions-app)))
       (defaction list-items :get (params) (declare (ignore params)) "ok")
       (testing "no args keeps the bare /actions/<id> (backward compatible)"
         (ok (null (position #\? (list-items)))))
@@ -55,11 +55,11 @@
 
 (deftest defaction-passes-params
   (testing "the handler receives ningle's params (alist)"
-    (let ((*app* (make-actions-app)))
+    (let ((*actions-app* (make-actions-app)))
       (defaction act-d :post (params)
         (cdr (assoc "name" params :test #'string=)))
       (let* ((id (subseq (act-d) (length "/actions/")))
-             (action (find-action *app* id)))
+             (action (find-action *actions-app* id)))
         (ok (string= "alice"
                      (funcall (action-handler action)
                               (list (cons "name" "alice")))))))))

@@ -1,10 +1,10 @@
 (uiop:define-package #:ningle-actions-test/app
   (:use #:cl #:rove)
   (:import-from #:ningle-actions
-                #:make-actions-app
                 #:actions-app
-                #:*app*)
+                #:*actions-app*)
   (:import-from #:ningle-actions/app
+                #:make-actions-app
                 #:register-action
                 #:find-action
                 #:action-endpoint
@@ -13,10 +13,9 @@
 (in-package #:ningle-actions-test/app)
 
 (deftest make-actions-app
-  (testing "returns an actions-app and sets *app*"
+  (testing "returns a fresh actions-app"
     (let ((app (make-actions-app)))
-      (ok (typep app 'actions-app))
-      (ok (eq app *app*)))))
+      (ok (typep app 'actions-app)))))
 
 (deftest register-and-find
   (testing "a registered action can be looked up by action_id"

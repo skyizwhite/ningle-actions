@@ -4,7 +4,3 @@
   (:use-reexport #:ningle-actions/app
                  #:ningle-actions/action))
 (in-package #:ningle-actions)
-
-;; Initialize the global actions app on load.
-(unless *app*
-  (make-actions-app))

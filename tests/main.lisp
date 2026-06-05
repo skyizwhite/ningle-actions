@@ -2,8 +2,9 @@
   (:use #:cl #:rove)
   (:import-from #:ningle-actions
                 #:defaction
-                #:make-actions-app
-                #:*app*)
+                #:*actions-app*)
+  (:import-from #:ningle-actions/app
+                #:make-actions-app)
   (:import-from #:lack
                 #:builder))
 (in-package #:ningle-actions-test/main)
@@ -19,10 +20,10 @@
         :url-scheme "http"))
 
 (defmacro with-mounted ((call-var) &body body)
-  "Build an integrated app with the actions app (*app*) mounted at /actions,
+  "Build an integrated app with the actions app (*actions-app*) mounted at /actions,
 and bind CALL-VAR to a function that issues a request as (method path &optional query)."
   (let ((app (gensym "APP")))
-    `(let* ((,app (builder (:mount "/actions" *app*)
+    `(let* ((,app (builder (:mount "/actions" *actions-app*)
                            (lambda (env) (declare (ignore env)) '(404 () ("MAIN-404")))))
             (,call-var (lambda (method path &optional query)
                          (funcall ,app (%env method path query)))))
@@ -31,7 +32,7 @@ and bind CALL-VAR to a function that issues a request as (method path &optional 
 
 (deftest integration-normal
   (testing "the action body runs for the right URL/method and its return value becomes the response"
-    (let ((*app* (make-actions-app)))
+    (let ((*actions-app* (make-actions-app)))
       (defaction greet :post (params)
         (format nil "hello ~A" (cdr (assoc "name" params :test #'string=))))
       (with-mounted (call)
@@ -41,14 +42,14 @@ and bind CALL-VAR to a function that issues a request as (method path &optional 
 
 (deftest integration-not-found
   (testing "an unknown action_id returns 404"
-    (let ((*app* (make-actions-app)))
+    (let ((*actions-app* (make-actions-app)))
       (with-mounted (call)
         (let ((res (funcall call :post "/actions/does-not-exist")))
           (ok (eql 404 (first res))))))))
 
 (deftest integration-method-not-allowed
   (testing "a method mismatch returns 405"
-    (let ((*app* (make-actions-app)))
+    (let ((*actions-app* (make-actions-app)))
       (defaction only-post :post (params) (declare (ignore params)) "ok")
       (with-mounted (call)
         (let ((res (funcall call :get (only-post))))
@@ -56,7 +57,7 @@ and bind CALL-VAR to a function that issues a request as (method path &optional 
 
 (deftest integration-passthrough
   (testing "a path not matching the prefix falls through to the main app"
-    (let ((*app* (make-actions-app)))
+    (let ((*actions-app* (make-actions-app)))
       (with-mounted (call)
         (let ((res (funcall call :get "/somewhere-else")))
           (ok (eql 404 (first res)))

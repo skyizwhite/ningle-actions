@@ -14,10 +14,10 @@
 - `defaction` は次の 2 つを同時に行う:
   1. ハンドラを **レジストリへ登録**（`action_id` → アクション）。
   2. **エンドポイント URL を返す関数を定義**（利用者はこの関数の戻り値を htmx 属性に埋め込む）。
-- アクションの登録先は **ライブラリが保持するグローバルなアクションアプリ `*app*`**。`defaction` はこれを暗黙に使い、**利用者はアプリインスタンスを意識しない**。
+- アクションの登録先は **ライブラリが提供するシングルトンのアクションアプリ `*actions-app*`**。`defaction` はこれを暗黙に使い、**利用者はアプリインスタンスを生成・保持しない**（ライブラリが用意したものをそのまま使う）。
 - アクション本体は **ningle と同じく `params`（alist）をそのまま受け取る**。型強制・引数バリデーションは行わない（利用者の責務）。
 - アクション本体の **戻り値も ningle の `process-response` がそのまま処理する**。レスポンス整形・content-type 設定・シリアライズはライブラリでは行わない（利用者／ningle の責務）。
-- 接頭辞は **`/actions` 固定**。アクションアプリは `(make-actions-app)` で生成し、**マウント（本体への統合）は利用者の責務**（本ライブラリのスコープ外。ドキュメントで手順を案内）。
+- 接頭辞は **`/actions` 固定**。アクションアプリ `*actions-app*` はライブラリがロード時に生成するシングルトンで、**マウント（本体への統合）は利用者の責務**（本ライブラリのスコープ外。ドキュメントで手順を案内）。
 
 これにより、利用者はルートパスを設計・記憶する必要がなくなり、アクションは「名前で呼ぶ関数」として扱える（Next.js Server Actions の発想）。一方でリクエスト値の扱いは ningle の流儀を崩さない。
 
@@ -34,11 +34,11 @@ graph TD
     end
 
     subgraph "利用者が構成 (Lack Builder) — 本ライブラリ外"
-        MW["mount middleware<br/>(:mount &quot;/actions&quot; *app*)"]
+        MW["mount middleware<br/>(:mount &quot;/actions&quot; *actions-app*)"]
         MAIN["本体 ningle アプリ<br/>(通常ルート)"]
     end
 
-    subgraph "ningle-actions : *app* (actions-app)"
+    subgraph "ningle-actions : *actions-app* (actions-app)"
         ROUTE["単一ルート /:action_id"]
         DISP["ディスパッチャ"]
         REG["レジストリ<br/>action_id(random) → アクション"]
@@ -56,25 +56,26 @@ graph TD
 - mount ミドルウェア（利用者が builder に記述）は `path-info` が `/actions` に一致すると接頭辞を除去してアクションアプリへ委譲する（`/actions/<id>` → アクションアプリには `/<id>` として届く）。
 - アクションアプリは `/:action_id` ルートひとつだけを持ち、`action_id` をレジストリで引いてハンドラを呼ぶ。
 
-### 1.2 グローバルアプリと利用フロー
+### 1.2 シングルトンアプリと利用フロー
 
 ```mermaid
 graph TD
-    A["(make-actions-app)"] -->|"生成し *app* に設定して返す"| APP["*app* : actions-app"]
-    DEF["defaction (app 指定なし)"] -->|"*app* に登録"| APP
+    LOAD["ライブラリのロード"] -->|"シングルトンを生成"| APP["*actions-app* : actions-app"]
+    DEF["defaction (app 指定なし)"] -->|"*actions-app* に登録"| APP
     DEF -->|"endpoint 関数を定義"| FN["(like) ⇒ \"/actions/&lt;id&gt;\""]
-    USER["利用者"] -->|"返り値を保持し自分で mount<br/>(スコープ外)"| MOUNT["(:mount \"/actions\" *app*)"]
+    USER["利用者"] -->|"*actions-app* をそのまま mount<br/>(スコープ外)"| MOUNT["(:mount \"/actions\" *actions-app*)"]
 ```
 
-- `*app*`（`ningle-actions:*app*`）はライブラリが保持するグローバルなアクションアプリ。ロード時に既定値で初期化される。
-- `(make-actions-app)` は新しい `actions-app` を生成して `*app*` に設定し、それを返す。**アクション定義より前に呼ぶ**。
-- `defaction` は `*app*` に登録する。
+- `*actions-app*`（`ningle-actions:*actions-app*`）はライブラリが提供するシングルトンのアクションアプリ。ロード時に単一ルート登録済みのインスタンスとして確定する。
+- 利用者はインスタンスを生成・保持しない。`*actions-app*` をそのまま `defaction` の登録先・mount 対象として使う。
+- `defaction` は `*actions-app*` に登録する。
+- 内部コンストラクタ `make-actions-app`（非公開）は副作用のない純粋関数で、シングルトンの生成とテスト時の隔離インスタンス生成に用いる。
 
 ### 1.3 接頭辞（prefix）の扱い
 
 接頭辞は **`/actions` 固定**（定数）。mount ミドルウェアは `path-info` を書き換えるが `script-name` は更新しない（実装で確認済み）ため接頭辞を実行時に取得できないが、固定値なのでエンドポイント生成関数は定数を前置するだけでよい。
 
-> 契約: 利用者は `(:mount "/actions" *app*)` で **`/actions`** にマウントする（エンドポイント関数の返す URL と一致させるため）。mount 配線自体は利用者責務。
+> 契約: 利用者は `(:mount "/actions" *actions-app*)` で **`/actions`** にマウントする（エンドポイント関数の返す URL と一致させるため）。mount 配線自体は利用者責務。
 
 ---
 
@@ -84,7 +85,7 @@ graph TD
 sequenceDiagram
     participant C as htmx クライアント
     participant Mnt as mount MW (利用者構成)
-    participant N as *app* (ningle dispatch)
+    participant N as *actions-app* (ningle dispatch)
     participant D as ディスパッチャ
     participant Reg as レジストリ
     participant B as アクション本体 (params を受領)
@@ -158,8 +159,8 @@ classDiagram
 
 ```mermaid
 graph TD
-    MAIN["ningle-actions/main<br/>公開 API 集約・再エクスポート・*app* 初期化"]
-    APP["ningle-actions/app<br/>actions-app・registry・dispatch・make-actions-app・*app*・定数"]
+    MAIN["ningle-actions/main<br/>公開 API 集約・再エクスポート"]
+    APP["ningle-actions/app<br/>actions-app・registry・dispatch・*actions-app* シングルトン・(内部) make-actions-app・定数"]
     ACTION["ningle-actions/action<br/>defaction マクロ・endpoint 関数生成"]
 
     MAIN --> ACTION
@@ -170,15 +171,15 @@ graph TD
 ### 4.1 `app`（actions-app / registry / dispatch / グローバル）
 - 定数: `+actions-prefix+` = `"/actions"`。
 - `actions-app` クラス（`ningle:app` 継承）。スロット: `registry` / `name-index`。
-- `*app*` : グローバルな現在のアクションアプリ（特殊変数）。ロード時に既定で初期化。
-- `make-actions-app ()`:
+- `make-actions-app ()`（**内部・非公開**）:
   - `actions-app` を生成し、**生成時に単一ルートを全標準メソッドで登録**:
     ```lisp
     (setf (ningle:route app "/:action_id"
                         :method '(:GET :POST :PUT :PATCH :DELETE))
           (lambda (params) (dispatch-action app params)))
     ```
-  - 生成したインスタンスを `*app*` に設定し、それを返す。
+  - **副作用を持たず**、生成したインスタンスを返すだけ。
+- `*actions-app*` : ライブラリが提供するシングルトンのアクションアプリ（特殊変数）。ロード時に `(make-actions-app)` の戻り値で確定する（`defvar`。再評価時も既存インスタンスと登録済みアクションを保持）。`defaction` の暗黙の登録先であり、利用者はこれをそのまま mount する。
 - `register-action (app name method handler)`:
   - `name-index` を引き、既存があればその `action_id` を再利用、なければ `generate-random-id` で採番。
   - レジストリへ `Action` を登録し、`action_id` を返す。
@@ -193,7 +194,7 @@ graph TD
 ### 4.2 `action`（defaction / endpoint 関数生成）
 - `defaction` マクロ（API は §5）。展開で:
   1. 本体を `(lambda (params) ...)` にまとめる。
-  2. `register-action` で `*app*` へ登録し `action_id` を確定（再定義時は再利用）。
+  2. `register-action` で `*actions-app*` へ登録し `action_id` を確定（再定義時は再利用）。
   3. `action_id` から完全エンドポイント（`/actions/<id>`）を返す関数 `name` を `defun`。この関数は `&rest` でキーワード引数を受け取り、`action-endpoint` に渡してクエリパラメータ付き URL を組み立てる。
 
 ### 4.3 htmx レスポンス制御について（ライブラリ対象外）
@@ -224,13 +225,12 @@ graph TD
 - `(PARAMS)` : 本体で束縛するパラメータ変数名を 1 つ持つリスト。`BODY` 内でこの名前により ningle の `params`（alist）を参照する。
 - `BODY` : `PARAMS` が束縛された状態で評価。`ningle:*request*` `*response*` `*session*` `*context*` も参照可能。
 
-登録先は常にグローバル `*app*`。
+登録先は常にシングルトン `*actions-app*`。利用者はインスタンスを生成しない。
 
 #### 利用例
 
 ```lisp
-(defparameter *actions* (make-actions-app))   ; *app* に設定される
-
+;; 生成は不要。defaction はシングルトン *actions-app* に登録する。
 (defaction like :post (params)
   (let ((id (parse-integer (cdr (assoc "id" params :test #'string=)))))
     (incf (gethash id *likes* 0))
@@ -245,9 +245,9 @@ graph TD
 
 統合（利用者が行う・スコープ外）:
 ```lisp
-(defparameter *app*
+(defparameter *web-app*
   (lack:builder
-    (:mount "/actions" *actions*)
+    (:mount "/actions" *actions-app*)
     *web*))
 ```
 
@@ -260,7 +260,7 @@ graph TD
 
 ```lisp
 (progn
-  (let ((#1=#:id (register-action *app* 'like :post
+  (let ((#1=#:id (register-action *actions-app* 'like :post
                                   (lambda (params)
                                     (let ((id (parse-integer
                                                (cdr (assoc "id" params :test #'string=)))))
@@ -269,11 +269,12 @@ graph TD
     (defun like (&rest query) (action-endpoint #1# query))))
 ```
 
-### 5.2 `make-actions-app`
+### 5.2 `*actions-app*`
 
 ```lisp
-(make-actions-app)
-  ;; => actions-app（単一ルート /:action_id 登録済み）。*app* に設定して返す。
+*actions-app*
+  ;; => actions-app（単一ルート /:action_id 登録済み）のシングルトン。
+  ;;    ロード時に確定。defaction の登録先であり、これをそのまま mount する。
 ```
 
 ### 5.3 公開シンボル（`ningle-actions` パッケージ）
@@ -281,9 +282,10 @@ graph TD
 | シンボル | 種別 | 概要 |
 |----------|------|------|
 | `defaction` | マクロ | アクション登録 + エンドポイント関数定義 |
-| `make-actions-app` | 関数 | アクションアプリ生成（`*app*` に設定） |
-| `*app*` | 変数 | 現在のグローバルアクションアプリ |
+| `*actions-app*` | 変数 | シングルトンのアクションアプリ。`defaction` の登録先・mount 対象 |
 | `actions-app` | クラス | アクションアプリ型 |
+
+> `make-actions-app` は内部コンストラクタとし公開しない（シングルトン生成・テストの隔離インスタンス生成に用いる）。
 
 > `action-endpoint`（`(id &optional query)` → 完全 URL）は内部ヘルパとし公開しない。`action_id` は不透明な内部値で利用者は保持せず、URL は `defaction` が定義する同名関数経由でのみ取得する。
 > マウント用ヘルパ・htmx ヘルパ・型強制/バリデーション API も提供しない（mount は利用者責務、HX-* と `params` は ningle 標準のまま扱う）。

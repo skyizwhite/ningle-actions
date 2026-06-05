@@ -14,8 +14,7 @@
   (:import-from #:alexandria
                 #:plist-alist)
   (:export #:actions-app
-           #:*app*
-           #:make-actions-app))
+           #:*actions-app*))
 (in-package #:ningle-actions/app)
 
 (defparameter +actions-prefix+ "/actions"
@@ -38,10 +37,6 @@ constant redefinition problem.")
                :reader app-name-index
                :documentation "name(symbol) -> action_id(string)"))
   (:documentation "A ningle:app subclass that registers and dispatches actions."))
-
-(defvar *app* nil
-  "The current actions app. Initialized by make-actions-app when main is loaded.
-defaction registers into this variable implicitly.")
 
 (defun find-action (app id)
   "Look up an action by action_id. Returns nil if not found."
@@ -92,11 +87,18 @@ unchanged and left to ningle to turn into a response."
        (funcall (action-handler action) params)))))
 
 (defun make-actions-app ()
-  "Create an actions app and register the single /:action_id route for all
-standard methods. Sets *app* to the new instance and returns it."
+  "Create a fresh actions-app with the single /:action_id route registered for
+all standard methods, and return it. Internal constructor with no side effects:
+the public entry point is the *actions-app* singleton; tests use this to build
+isolated apps."
   (let ((app (make-instance 'actions-app)))
     (setf (route app "/:action_id" :method '(:GET :POST :PUT :PATCH :DELETE))
           (lambda (params)
             (dispatch-action app params)))
-    (setf *app* app)
     app))
+
+(defvar *actions-app* (make-actions-app)
+  "The singleton actions app, created at load time with its dispatch route
+registered. defaction registers into it implicitly, and you mount it into your
+host app with (:mount \"/actions\" *actions-app*). Tests may rebind it to an
+isolated instance built with make-actions-app.")

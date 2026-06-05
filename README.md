@@ -34,11 +34,10 @@ attributes like `hx-post`.
   (:local-nicknames (#:na #:ningle-actions)))
 (in-package #:my-app)
 
-;; 1. Create an actions app (the prefix is fixed to /actions).
-(defparameter *actions* (na:make-actions-app))
-
-;; 2. Define an action. A function `like` is defined at the same time;
-;;    calling it returns the endpoint URL.
+;; 1. Define an action. The library provides a singleton actions app,
+;;    na:*actions-app*, and defaction registers into it implicitly — you do
+;;    not create or hold an instance yourself. A function `like` is defined at
+;;    the same time; calling it returns the endpoint URL.
 (defparameter *likes* (make-hash-table))
 
 (na:defaction like :post (params)
@@ -47,13 +46,14 @@ attributes like `hx-post`.
     ;; Return an HTML fragment (any generation method works).
     (format nil "<button>&#9829; ~A</button>" (gethash id *likes*))))
 
-;; 3. Mount into the host app (wiring the mount is the user's responsibility).
+;; 2. Mount the singleton into the host app (wiring the mount is the user's
+;;    responsibility). The prefix is fixed to /actions.
 (defparameter *web* (make-instance 'ningle:app))
 ;; ... set up the host's normal routes ...
 
-(defparameter *app*
+(defparameter *web-app*
   (lack:builder
-    (:mount "/actions" *actions*)   ; match make-actions-app's "/actions" prefix
+    (:mount "/actions" na:*actions-app*)   ; must be "/actions" (the fixed prefix)
     *web*))
 ```
 
@@ -64,7 +64,7 @@ On the view side (htmx), embed the return value of `(like)`
 <button hx-post="<%= (like) %>" hx-target="#like-42" hx-swap="outerHTML">like</button>
 ```
 
-Run `*app*` with a Clack handler (Hunchentoot / Woo, etc.) and it works.
+Run `*web-app*` with a Clack handler (Hunchentoot / Woo, etc.) and it works.
 
 ### Query parameters
 
@@ -96,9 +96,8 @@ unknown id returns `404`.
 
 | Symbol | Kind | Description |
 |--------|------|-------------|
-| `defaction` | macro | `(defaction NAME METHOD (PARAMS) &body BODY)`. Registers an action and defines a same-named function returning the URL; keyword arguments to that function become query parameters |
-| `make-actions-app` | function | Creates an actions app, sets `*app*`, and returns it (no arguments) |
-| `*app*` | variable | The current actions app; the implicit target of `defaction` |
+| `defaction` | macro | `(defaction NAME METHOD (PARAMS) &body BODY)`. Registers an action on `*actions-app*` and defines a same-named function returning the URL; keyword arguments to that function become query parameters |
+| `*actions-app*` | variable | The singleton actions app, created at load time. The implicit target of `defaction`; mount it with `(:mount "/actions" *actions-app*)` |
 | `actions-app` | class | The actions app type (a `ningle:app` subclass) |
 
 ## Security

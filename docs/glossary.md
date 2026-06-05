@@ -11,8 +11,8 @@
 |----------------|--------------|----------------|------|
 | アクション | Action | `action`（レコード/概念） | サーバー上で実行される処理の単位。HTTP メソッド・本体・`action_id` を持ち、レジストリに登録される。Next.js の Server Action に相当。 |
 | アクション ID | Action ID | `action_id`（URL）/ `id` | 各アクションを一意に識別するランダムな不透明トークン。URL の 1 セグメントとして使われる。 |
-| アクションアプリ | Actions App | `actions-app` / `*app*` | アクションを登録・ディスパッチする `ningle:app` 派生インスタンス。レジストリと name-index を持つ。 |
-| グローバルアプリ | Global (current) app | `*app*` | ライブラリが保持する「現在のアクションアプリ」を指す特殊変数。`defaction` の暗黙の登録先。 |
+| アクションアプリ | Actions App | `actions-app` / `*actions-app*` | アクションを登録・ディスパッチする `ningle:app` 派生インスタンス。レジストリと name-index を持つ。 |
+| シングルトンアプリ | Singleton app | `*actions-app*` | ライブラリがロード時に提供するシングルトンのアクションアプリを指す特殊変数。`defaction` の暗黙の登録先であり、利用者はこれをそのまま mount する。 |
 | レジストリ | Registry | `registry` | `action_id` → アクション のハッシュテーブル。 |
 | ネームインデックス | Name index | `name-index` | アクション名（シンボル）→ `action_id` の対応表。再定義時に `action_id` を再利用するために用いる。 |
 | エンドポイント | Endpoint | `endpoint` | アクションを呼び出すための URL。`/actions/<action_id>`。 |
