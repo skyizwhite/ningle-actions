@@ -109,6 +109,62 @@
           (ok (string= (concatenate 'string base "?category=foo&page=2")
                        (list-items :category "foo" :page 2))))))))
 
+(deftest defaction-block-allows-early-return
+  (testing "the body is wrapped in a BLOCK named NAME, so return-from exits early"
+    (let ((*actions-app* (make-actions-app)))
+      (defaction act-e :post (params)
+        (when (assoc "stop" params :test #'string=)
+          (return-from act-e "early"))
+        "late")
+      (let* ((id (subseq (act-e) (length "/actions/")))
+             (action (find-action *actions-app* id))
+             (handler (action-handler action)))
+        (testing "return-from short-circuits the rest of the body"
+          (ok (string= "early"
+                       (funcall handler (list (cons "stop" "1"))))))
+        (testing "without the early return the body runs to the end"
+          (ok (string= "late" (funcall handler nil))))))))
+
+(deftest defaction-expansion-wraps-body-in-block
+  (testing "the body is wrapped in (block NAME ...) with no leading declarations"
+    (ok (expands
+         '(defaction act :get (params) "ok")
+         '(let ((#1=#:id (register-action *actions-app* 'act :get
+                          (lambda (params)
+                            (block act
+                              "ok")))))
+           (defun act (&rest ningle-actions/core::query)
+             (action-endpoint #1# ningle-actions/core::query)))))))
+
+(deftest defaction-expansion-hoists-declarations
+  (testing "leading declarations stay at the lambda head, outside the block"
+    (testing "a single declaration is hoisted before the block"
+      (ok (expands
+           '(defaction act :get (params)
+             (declare (ignore params))
+             "ok")
+           '(let ((#1=#:id (register-action *actions-app* 'act :get
+                            (lambda (params)
+                              (declare (ignore params))
+                              (block act
+                                "ok")))))
+             (defun act (&rest ningle-actions/core::query)
+               (action-endpoint #1# ningle-actions/core::query))))))
+    (testing "multiple leading declarations are all hoisted, in order"
+      (ok (expands
+           '(defaction act :get (params)
+             (declare (ignore params))
+             (declare (optimize (speed 1)))
+             "ok")
+           '(let ((#2=#:id (register-action *actions-app* 'act :get
+                            (lambda (params)
+                              (declare (ignore params))
+                              (declare (optimize (speed 1)))
+                              (block act
+                                "ok")))))
+             (defun act (&rest ningle-actions/core::query)
+               (action-endpoint #2# ningle-actions/core::query))))))))
+
 (deftest defaction-passes-params
   (testing "the handler receives ningle's params (alist)"
     (let ((*actions-app* (make-actions-app)))

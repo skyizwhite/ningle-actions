@@ -126,9 +126,16 @@ its endpoint URL.
   PARAMS : variable name bound in the body to ningle's params (an alist).
   BODY   : action body. May reference PARAMS and ningle:*request* etc."
   (let ((id (gensym "ID")))
-    `(let ((,id (register-action *actions-app* ',name ,method
-                                 (lambda (,params)
-                                   (declare (ignorable ,params))
-                                   ,@body))))
-       (defun ,name (&rest query)
-         (action-endpoint ,id query)))))
+    ;; Peel off any leading declarations so they stay at the head of the
+    ;; lambda body; the BLOCK only wraps the executable forms.
+    (loop :for tail :on body
+          :while (and (consp (car tail)) (eq 'declare (caar tail)))
+          :collect (car tail) :into decls
+          :finally (return
+                     `(let ((,id (register-action *actions-app* ',name ,method
+                                                  (lambda (,params)
+                                                    ,@decls
+                                                    (block ,name
+                                                      ,@tail)))))
+                        (defun ,name (&rest query)
+                          (action-endpoint ,id query)))))))
