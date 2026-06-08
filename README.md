@@ -106,6 +106,8 @@ On the view side (htmx), embed the return value of `(like)`
 ```
 
 Run `*web-app*` with a Clack handler (Hunchentoot / Woo, etc.) and it works.
+For a complete app using this in production, see
+[skyizwhite/website](https://github.com/skyizwhite/website).
 
 ### Query parameters
 
