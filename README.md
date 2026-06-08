@@ -1,16 +1,57 @@
 # ningle-actions
 
-A server-action extension for [ningle](https://github.com/fukamachi/ningle),
-inspired by Next.js Server Actions.
+A [ningle](https://github.com/fukamachi/ningle) extension that keeps your
+**page URLs** and your **partial-update URLs** from getting tangled together.
+Built for hypermedia-driven apps (e.g. [htmx](https://htmx.org/)) where the
+server returns small HTML fragments to update part of a page.
 
-Define a server function once with `defaction` and you get:
+## The problem it solves
 
-- an auto-generated, auto-registered endpoint with a random opaque id, and
-- a **function of the same name** that returns that URL (you never write or
-  remember concrete URLs).
+In a hypermedia-driven app you really have two different kinds of URLs:
 
-Clients (e.g. htmx) just embed the return value of that function into
-attributes like `hx-post`.
+- **Page URLs** — meaningful, designed, often bookmarkable resources
+  (`/posts/42`, `/settings`). You *want* to think about these.
+- **Partial-update URLs** — the targets of `hx-post` / `hx-get` that return an
+  HTML fragment to swap into the current page. These aren't pages; they're
+  plumbing behind a button or a form.
+
+In plain ningle both kinds share one route table and one URL namespace. So your
+carefully designed page routes end up mixed in with a growing pile of
+fragment-update routes; you have to invent names for the latter that don't
+collide with the former, and keep each route definition in sync, by hand, with
+the `hx-*` attribute that calls it.
+
+## What it does
+
+`defaction` moves every partial-update endpoint into its **own separate
+namespace** — `/actions/<random-opaque-id>`, generated for you — so it never
+mixes with your page URLs. You define the handler once and get back two things:
+
+- an endpoint that is **automatically created and registered** under `/actions`,
+  addressed by a random opaque id — there is no URL for you to design or manage,
+  and
+- a **function of the same name** that returns that endpoint's URL.
+
+Your view embeds the *function's return value* instead of a URL literal, so the
+URL never appears as a string anywhere, and the handler and the view cannot
+drift out of sync.
+
+```lisp
+;; Define once. `like` is now both a registered POST endpoint under /actions
+;; and a function that yields its URL.
+(na:defaction like :post (params) ...)
+```
+```html
+<!-- The view asks for the URL by name; it never spells one out.
+     Request parameters are sent as form data / hx-vals as usual. -->
+<button hx-post="<%= (like) %>" hx-vals='{"id": 42}'
+        hx-target="#like-42" hx-swap="outerHTML">like</button>
+```
+
+> If you happen to know Next.js Server Actions, this is the same core idea — a
+> server function you can "call" from the client without hand-wiring an endpoint
+> — adapted to ningle and htmx. No frontend-framework knowledge is required to
+> use it, though.
 
 ## Features
 
