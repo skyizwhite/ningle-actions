@@ -1,5 +1,5 @@
 (defsystem "ningle-actions"
-  :version "0.4.1"
+  :version "0.5.0"
   :description "Server actions for Ningle"
   :long-description #.(uiop:read-file-string
                        (uiop:subpathname *load-pathname* "README.md"))
