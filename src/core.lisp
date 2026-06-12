@@ -61,12 +61,21 @@ aids log traceability; the random suffix keeps slugs unique and unguessable."
                "-"
                (subseq (generate-random-id) 0 +id-length+)))
 
+(defun allocate-action-slug (app name)
+  "Allocate a fresh slug for NAME that is not already taken in APP's registry,
+retrying on the (astronomically unlikely) chance the short random id collides
+with another action's. Only reached when NAME has no slug yet; redefining an
+existing name reuses its slug and never enters this collision retry."
+  (loop for slug = (make-action-slug name)
+        unless (find-action app slug)
+          return slug))
+
 (defun register-action (app name method handler)
   "Register an action, reusing the existing slug for NAME (allocating a new one
 if absent). Returns the slug. Reusing it on redefinition keeps endpoint URLs
 stable."
   (let ((slug (or (gethash name (app-name-index app))
-                  (setf (gethash name (app-name-index app)) (make-action-slug name)))))
+                  (setf (gethash name (app-name-index app)) (allocate-action-slug app name)))))
     (setf (gethash slug (app-registry app))
           (%make-action :slug slug :name name :method method :handler handler))
     slug))

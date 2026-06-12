@@ -7,11 +7,23 @@
   (:import-from #:ningle-actions/core
                 #:make-actions-app
                 #:register-action
+                #:allocate-action-slug
+                #:make-action-slug
                 #:find-action
+                #:app-registry
                 #:action-endpoint
                 #:action-method
                 #:action-handler))
 (in-package #:ningle-actions-test/core)
+
+(defmacro with-stubbed-fn ((name fn) &body body)
+  "Temporarily replace the global function NAME with FN for the duration of BODY,
+restoring the original afterwards. Plain-CL test double (no mock dependency)."
+  (let ((orig (gensym "ORIG")))
+    `(let ((,orig (fdefinition ',name)))
+       (setf (fdefinition ',name) ,fn)
+       (unwind-protect (progn ,@body)
+         (setf (fdefinition ',name) ,orig)))))
 
 ;;; --- actions-app / registry / endpoint -------------------------------------
 
@@ -43,6 +55,48 @@
       (ok (string= id1 id2))
       (testing "the handler is replaced"
         (ok (string= "v2" (funcall (action-handler (find-action app id2)) nil)))))))
+
+(deftest action-slug-reuse-skips-allocation
+  (testing "redefining the same name reuses its slug without allocating a new one"
+    (let ((app (make-actions-app))
+          (calls 0))
+      ;; Count how often a fresh slug is generated across two registrations of
+      ;; the same name; redefinition must NOT generate (it reuses the slug).
+      (with-stubbed-fn (make-action-slug
+                        (lambda (name)
+                          (incf calls)
+                          (concatenate 'string (string-downcase (symbol-name name)) "-aaaaaa")))
+        (register-action app 'baz :post (lambda (p) (declare (ignore p)) "v1"))
+        (register-action app 'baz :post (lambda (p) (declare (ignore p)) "v2")))
+      (ok (eql 1 calls)))))
+
+(deftest allocate-action-slug-retries-on-collision
+  (testing "a generated slug already taken in the registry is skipped"
+    (let ((app (make-actions-app))
+          ;; First candidate collides with an occupied slug; the second is free.
+          (candidates (list "foo-aaaaaa" "foo-bbbbbb")))
+      (setf (gethash "foo-aaaaaa" (app-registry app)) :taken)
+      (let ((slug (with-stubbed-fn (make-action-slug
+                                    (lambda (name) (declare (ignore name)) (pop candidates)))
+                    (allocate-action-slug app 'foo))))
+        (ok (string= "foo-bbbbbb" slug))
+        (testing "all colliding candidates were consumed before returning"
+          (ok (null candidates)))))))
+
+(deftest register-action-allocates-distinct-slug-on-collision
+  (testing "a new name whose first random slug collides gets a distinct one"
+    (let ((app (make-actions-app))
+          ;; 'a takes foo-aaaaaa; 'b's first try collides, retry yields foo-bbbbbb.
+          (candidates (list "foo-aaaaaa" "foo-aaaaaa" "foo-bbbbbb")))
+      (with-stubbed-fn (make-action-slug
+                        (lambda (name) (declare (ignore name)) (pop candidates)))
+        (let ((slug-a (register-action app 'a :get (lambda (p) (declare (ignore p)) "a")))
+              (slug-b (register-action app 'b :get (lambda (p) (declare (ignore p)) "b"))))
+          (ok (string= "foo-aaaaaa" slug-a))
+          (ok (string= "foo-bbbbbb" slug-b))
+          (testing "neither action overwrote the other"
+            (ok (string= "a" (funcall (action-handler (find-action app slug-a)) nil)))
+            (ok (string= "b" (funcall (action-handler (find-action app slug-b)) nil)))))))))
 
 (deftest action-endpoint-format
   (testing "returns the /actions/<id> form"
