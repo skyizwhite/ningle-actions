@@ -24,12 +24,12 @@ the `hx-*` attribute that calls it.
 ## What it does
 
 `defaction` moves every partial-update endpoint into its **own separate
-namespace** — `/actions/<random-opaque-id>`, generated for you — so it never
+namespace** — `/actions/<name>-<id>`, generated for you — so it never
 mixes with your page URLs. You define the handler once and get back two things:
 
 - an endpoint that is **automatically created and registered** under `/actions`,
-  addressed by a random opaque id — there is no URL for you to design or manage,
-  and
+  addressed by `<name>-<id>` (the action name plus a short random id) — there is
+  no URL for you to design or manage, and
 - a **function of the same name** that returns that endpoint's URL.
 
 Your view embeds the *function's return value* instead of a URL literal, so the
@@ -99,7 +99,7 @@ drift out of sync.
 ```
 
 On the view side (htmx), embed the return value of `(like)`
-(e.g. `"/actions/3f9a...c2"`):
+(e.g. `"/actions/like-3f9a1c"`):
 
 ```html
 <button hx-post="<%= (like) %>" hx-target="#like-42" hx-swap="outerHTML">like</button>
@@ -121,9 +121,9 @@ preserved:
   (let ((category (cdr (assoc "category" params :test #'string=))))
     ...))
 
-(list-items)                          ;=> "/actions/3f9a…c2"
-(list-items :category "foo")          ;=> "/actions/3f9a…c2?category=foo"
-(list-items :category "foo" :page 2)  ;=> "/actions/3f9a…c2?category=foo&page=2"
+(list-items)                          ;=> "/actions/list-items-3f9a1c"
+(list-items :category "foo")          ;=> "/actions/list-items-3f9a1c?category=foo"
+(list-items :category "foo" :page 2)  ;=> "/actions/list-items-3f9a1c?category=foo&page=2"
 ```
 
 On the server side these arrive in ningle's `params` exactly like any other
@@ -148,9 +148,9 @@ The second argument of `defaction` is the method (`:get` `:post` `:put`
 An action defined with `defaction` is just a normal HTTP request handler
 reachable from the network. It carries the **same web security risks as any
 other endpoint**, and you must guard against them yourself — this library does
-not, and the random `action_id` is *not* a secret (it is embedded in the HTML
+not, and the slug's random suffix is *not* a secret (it is embedded in the HTML
 sent to every client, so it is visible in the DOM, network logs, and `Referer`
-headers; it only prevents enumeration, never authorization).
+headers; it only raises the bar against enumeration, never authorization).
 
 In particular:
 

@@ -31,33 +31,45 @@ constant redefinition problem.")
 
 (defstruct (action (:constructor %make-action))
   "Internal record for a single registered action."
-  id        ; action_id (string)
+  slug      ; URL path segment, <name>-<id> (string)
   name      ; defaction name (symbol)
   method    ; HTTP method (keyword)
   handler)  ; closure taking the params alist
 
+(defparameter +id-length+ 6
+  "Length (in hex chars) of the random id suffix in an action slug.")
+
 (defclass actions-app (app)
   ((registry :initform (make-hash-table :test 'equal)
              :reader app-registry
-             :documentation "action_id(string) -> action")
+             :documentation "slug(string) -> action")
    (name-index :initform (make-hash-table :test 'eq)
                :reader app-name-index
-               :documentation "name(symbol) -> action_id(string)"))
+               :documentation "name(symbol) -> slug(string)"))
   (:documentation "A ningle:app subclass that registers and dispatches actions."))
 
-(defun find-action (app id)
-  "Look up an action by action_id. Returns nil if not found."
-  (gethash id (app-registry app)))
+(defun find-action (app slug)
+  "Look up an action by its URL slug. Returns nil if not found."
+  (gethash slug (app-registry app)))
+
+(defun make-action-slug (name)
+  "Build a URL path segment for NAME of the form <name>-<id>, where <name> is the
+downcased symbol name and <id> is a short random hex string. The name prefix
+aids log traceability; the random suffix keeps slugs unique and unguessable."
+  (concatenate 'string
+               (string-downcase (symbol-name name))
+               "-"
+               (subseq (generate-random-id) 0 +id-length+)))
 
 (defun register-action (app name method handler)
-  "Register an action, reusing the existing action_id for NAME (allocating a
-new one if absent). Returns the action_id. Reusing the id on redefinition
-keeps endpoint URLs stable."
-  (let ((id (or (gethash name (app-name-index app))
-                (setf (gethash name (app-name-index app)) (generate-random-id)))))
-    (setf (gethash id (app-registry app))
-          (%make-action :id id :name name :method method :handler handler))
-    id))
+  "Register an action, reusing the existing slug for NAME (allocating a new one
+if absent). Returns the slug. Reusing it on redefinition keeps endpoint URLs
+stable."
+  (let ((slug (or (gethash name (app-name-index app))
+                  (setf (gethash name (app-name-index app)) (make-action-slug name)))))
+    (setf (gethash slug (app-registry app))
+          (%make-action :slug slug :name name :method method :handler handler))
+    slug))
 
 (defun query-params-alist (plist)
   "Convert a plist of keyword/value pairs into an alist suitable for
@@ -69,22 +81,22 @@ keys and string/number values). Order follows the plist."
                   (princ-to-string (cdr pair))))
           (plist-alist plist)))
 
-(defun action-endpoint (id &optional query)
-  "Build the full endpoint URL string (/actions/<id>) from an action_id,
+(defun action-endpoint (slug &optional query)
+  "Build the full endpoint URL string (/actions/<name>-<id>) from a slug,
 assembled with quri:make-uri. If QUERY (a plist of keyword/value pairs) is
 non-nil, it is appended as a URL-encoded query string; otherwise the bare
-/actions/<id> is returned."
-  (let ((path (concatenate 'string +actions-prefix+ "/" id)))
+/actions/<name>-<id> is returned."
+  (let ((path (concatenate 'string +actions-prefix+ "/" slug)))
     (if query
         (render-uri (make-uri :path path :query (query-params-alist query)))
         path)))
 
 (defun dispatch-action (app params)
   "Handler for the single /:action_id route. Calls the action's handler when the
-action_id is known and the request method matches; otherwise sets a 404 on
+slug is known and the request method matches; otherwise sets a 404 on
 *response* and returns nil (empty body)."
-  (let* ((id (cdr (assoc :action_id params)))
-         (action (and id (find-action app id))))
+  (let* ((slug (cdr (assoc :action_id params)))
+         (action (and slug (find-action app slug))))
     (if (and action (eq (action-method action) (request-method *request*)))
         (funcall (action-handler action) params)
         (progn
@@ -119,9 +131,10 @@ Add it to your lack:builder chain to wire up the actions app.")
 its endpoint URL.
 
   NAME   : action name. A function of this name is defined that, when called,
-           returns /actions/<id>. Keyword arguments passed to it are appended
-           to the URL as query parameters, e.g.
-           (NAME :category \"foo\" :page 2) => /actions/<id>?category=foo&page=2.
+           returns /actions/<name>-<id>. Keyword arguments passed to it are
+           appended to the URL as query parameters, e.g.
+           (NAME :category \"foo\" :page 2)
+           => /actions/<name>-<id>?category=foo&page=2.
   METHOD : accepted HTTP method keyword (:get :post :put :patch :delete).
   PARAMS : variable name bound in the body to ningle's params (an alist).
   BODY   : action body. May reference PARAMS and ningle:*request* etc."
