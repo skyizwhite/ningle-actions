@@ -9,6 +9,7 @@
                 #:register-action
                 #:allocate-action-slug
                 #:make-action-slug
+                #:fnv-1a
                 #:find-action
                 #:app-registry
                 #:action-endpoint
@@ -63,12 +64,49 @@ restoring the original afterwards. Plain-CL test double (no mock dependency)."
       ;; Count how often a fresh slug is generated across two registrations of
       ;; the same name; redefinition must NOT generate (it reuses the slug).
       (with-stubbed-fn (make-action-slug
-                        (lambda (name)
+                        (lambda (name &optional (attempt 0))
+                          (declare (ignore attempt))
                           (incf calls)
                           (concatenate 'string (string-downcase (symbol-name name)) "-aaaaaa")))
         (register-action app 'baz :post (lambda (p) (declare (ignore p)) "v1"))
         (register-action app 'baz :post (lambda (p) (declare (ignore p)) "v2")))
       (ok (eql 1 calls)))))
+
+(deftest make-action-slug-is-derived-from-the-name
+  (testing "the slug is <downcased name>-<6 hex chars>"
+    (let ((slug (make-action-slug 'foo)))
+      (ok (eql 0 (search "foo-" slug)))
+      (ok (eql (length "foo-") (- (length slug) 6)))
+      (ok (every (lambda (c) (digit-char-p c 16)) (subseq slug (length "foo-"))))))
+  (testing "the same name always yields the same slug (stable across deploys)"
+    (ok (string= (make-action-slug 'foo) (make-action-slug 'foo))))
+  (testing "different names yield different slugs"
+    (ok (string/= (make-action-slug 'foo) (make-action-slug 'bar))))
+  (testing "same name in different packages yields different ids"
+    (let ((a (make-action-slug (intern "SHARED" (or (find-package "NINGLE-ACTIONS-TEST/PKG-A")
+                                                    (make-package "NINGLE-ACTIONS-TEST/PKG-A"
+                                                                  :use nil)))))
+          (b (make-action-slug (intern "SHARED" (or (find-package "NINGLE-ACTIONS-TEST/PKG-B")
+                                                    (make-package "NINGLE-ACTIONS-TEST/PKG-B"
+                                                                  :use nil))))))
+      (ok (eql 0 (search "shared-" a)))
+      (ok (eql 0 (search "shared-" b)))
+      (ok (string/= a b))))
+  (testing "a later attempt re-derives a different id for the same name"
+    (ok (string/= (make-action-slug 'foo 0) (make-action-slug 'foo 1)))
+    (testing "attempt 0 is the plain derived slug"
+      (ok (string= (make-action-slug 'foo) (make-action-slug 'foo 0))))))
+
+(deftest fnv-1a-hash
+  (testing "matches the published 32-bit FNV-1a test vectors"
+    (ok (eql 2166136261 (fnv-1a "")))
+    (ok (eql 3826002220 (fnv-1a "a")))
+    (ok (eql 3214735720 (fnv-1a "foobar"))))
+  (testing "stays within 32 bits for a long input"
+    (ok (< (fnv-1a (make-string 1000 :initial-element #\x)) (expt 2 32))))
+  (testing "hashes characters outside Latin-1 deterministically"
+    (ok (eql (fnv-1a "アクション") (fnv-1a "アクション")))
+    (ok (/= (fnv-1a "アクション") (fnv-1a "アクシヨン")))))
 
 (deftest allocate-action-slug-retries-on-collision
   (testing "a generated slug already taken in the registry is skipped"
@@ -77,7 +115,9 @@ restoring the original afterwards. Plain-CL test double (no mock dependency)."
           (candidates (list "foo-aaaaaa" "foo-bbbbbb")))
       (setf (gethash "foo-aaaaaa" (app-registry app)) :taken)
       (let ((slug (with-stubbed-fn (make-action-slug
-                                    (lambda (name) (declare (ignore name)) (pop candidates)))
+                                    (lambda (name &optional (attempt 0))
+                                      (declare (ignore name attempt))
+                                      (pop candidates)))
                     (allocate-action-slug app 'foo))))
         (ok (string= "foo-bbbbbb" slug))
         (testing "all colliding candidates were consumed before returning"
@@ -89,7 +129,9 @@ restoring the original afterwards. Plain-CL test double (no mock dependency)."
           ;; 'a takes foo-aaaaaa; 'b's first try collides, retry yields foo-bbbbbb.
           (candidates (list "foo-aaaaaa" "foo-aaaaaa" "foo-bbbbbb")))
       (with-stubbed-fn (make-action-slug
-                        (lambda (name) (declare (ignore name)) (pop candidates)))
+                        (lambda (name &optional (attempt 0))
+                          (declare (ignore name attempt))
+                          (pop candidates)))
         (let ((slug-a (register-action app 'a :get (lambda (p) (declare (ignore p)) "a")))
               (slug-b (register-action app 'b :get (lambda (p) (declare (ignore p)) "b"))))
           (ok (string= "foo-aaaaaa" slug-a))

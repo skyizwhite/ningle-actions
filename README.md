@@ -28,8 +28,8 @@ namespace** — `/actions/<name>-<id>`, generated for you — so it never
 mixes with your page URLs. You define the handler once and get back two things:
 
 - an endpoint that is **automatically created and registered** under `/actions`,
-  addressed by `<name>-<id>` (the action name plus a short random id) — there is
-  no URL for you to design or manage, and
+  addressed by `<name>-<id>` (the action name plus a short id derived from it)
+  — there is no URL for you to design or manage, and
 - a **function of the same name** that returns that endpoint's URL.
 
 Your view embeds the *function's return value* instead of a URL literal, so the
@@ -55,9 +55,12 @@ drift out of sync.
 
 ## Features
 
-- **URL-free**: `(like)` returns the endpoint URL. The URL stays stable across
-  redefinitions. Pass keyword arguments to append them as query parameters
-  (`(like :id 42)` → `/actions/…?id=42`).
+- **URL-free**: `(like)` returns the endpoint URL. Pass keyword arguments to
+  append them as query parameters (`(like :id 42)` → `/actions/…?id=42`).
+- **Stable URLs**: the `<id>` is a hash of the package-qualified action name,
+  not a random value, so an action keeps the same URL across redefinitions,
+  across processes, and across deploys. (Renaming an action, or moving it to
+  another package, changes its URL.)
 - **Single endpoint**: the actions app exposes only one route, `/:action_id`,
   and dispatches by id.
 - **Idiomatic ningle**: the action body receives ningle's `params` (an alist)
@@ -148,9 +151,10 @@ The second argument of `defaction` is the method (`:get` `:post` `:put`
 An action defined with `defaction` is just a normal HTTP request handler
 reachable from the network. It carries the **same web security risks as any
 other endpoint**, and you must guard against them yourself — this library does
-not, and the slug's random suffix is *not* a secret (it is embedded in the HTML
-sent to every client, so it is visible in the DOM, network logs, and `Referer`
-headers; it only raises the bar against enumeration, never authorization).
+not, and the slug's id suffix is *not* a secret (it is derived from the action
+name, and it is embedded in the HTML sent to every client, so it is visible in
+the DOM, network logs, and `Referer` headers; it disambiguates same-named
+actions, it is never authorization).
 
 In particular:
 
@@ -160,7 +164,7 @@ In particular:
   middleware).
 - **Authentication / authorization** — check the session/user inside the
   action (`ningle:*request*` / `*session*` are available) before performing any
-  privileged work. Do not rely on the opaque URL as an access control.
+  privileged work. Do not rely on the URL itself as an access control.
 - **Input validation & injection** — `params` reaches the body as raw strings.
   Validate and coerce them, and use parameterized queries (SQLi), path
   normalization (path traversal), and output escaping (XSS) as you would in any

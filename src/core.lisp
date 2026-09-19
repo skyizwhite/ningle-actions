@@ -9,8 +9,6 @@
                 #:request-method)
   (:import-from #:lack/response
                 #:response-status)
-  (:import-from #:lack/util
-                #:generate-random-id)
   (:import-from #:lack/middleware/mount
                 #:*lack-middleware-mount*)
   (:import-from #:quri
@@ -37,7 +35,14 @@ constant redefinition problem.")
   handler)  ; closure taking the params alist
 
 (defparameter +id-length+ 6
-  "Length (in hex chars) of the random id suffix in an action slug.")
+  "Length (in hex chars) of the id suffix in an action slug. At most 8, the
+width of the 32-bit hash it is taken from.")
+
+(defparameter +fnv-offset-basis+ 2166136261
+  "Offset basis of the 32-bit FNV-1a hash.")
+
+(defparameter +fnv-prime+ 16777619
+  "Prime multiplier of the 32-bit FNV-1a hash.")
 
 (defclass actions-app (app)
   ((registry :initform (make-hash-table :test 'equal)
@@ -52,23 +57,52 @@ constant redefinition problem.")
   "Look up an action by its URL slug. Returns nil if not found."
   (gethash slug (app-registry app)))
 
-(defun make-action-slug (name)
+(defun fnv-1a (string)
+  "32-bit FNV-1a hash of STRING. Each character is mixed in one octet at a time,
+little-endian, at least one octet per character, so characters outside Latin-1
+hash deterministically too. Plain integer math with no external state: the same
+string always yields the same number, in every process and every image."
+  (let ((hash +fnv-offset-basis+))
+    (flet ((mix (octet)
+             (setf hash (ldb (byte 32 0) (* (logxor hash octet) +fnv-prime+)))))
+      (loop :for char :across string
+            :do (loop :for code := (char-code char) :then (ash code -8)
+                      :do (mix (ldb (byte 8 0) code))
+                      :until (zerop (ash code -8)))))
+    hash))
+
+(defun make-action-slug (name &optional (attempt 0))
   "Build a URL path segment for NAME of the form <name>-<id>, where <name> is the
-downcased symbol name and <id> is a short random hex string. The name prefix
-aids log traceability; the random suffix keeps slugs unique and unguessable."
-  (concatenate 'string
-               (string-downcase (symbol-name name))
-               "-"
-               (subseq (generate-random-id) 0 +id-length+)))
+downcased symbol name and <id> is a short hex hash of the package-qualified
+name. The name prefix aids log traceability; the hash keeps slugs unique across
+packages. The id is *derived*, not random, so the same action keeps the same URL
+in every process and across deploys. ATTEMPT is folded into the hashed key so a
+colliding slug can be re-derived (see allocate-action-slug).
+
+The flip side of deriving it: renaming an action, or moving it to another
+package, changes its URL."
+  (let* ((package (symbol-package name))
+         (key (format nil "~A:~A~@[#~D~]"
+                      (if package (package-name package) "#")
+                      (symbol-name name)
+                      (when (plusp attempt) attempt))))
+    (format nil "~(~A-~V,'0X~)"
+            (symbol-name name)
+            +id-length+
+            (ldb (byte (* 4 +id-length+) 0) (fnv-1a key)))))
 
 (defun allocate-action-slug (app name)
-  "Allocate a fresh slug for NAME that is not already taken in APP's registry,
-retrying on the (astronomically unlikely) chance the short random id collides
-with another action's. Only reached when NAME has no slug yet; redefining an
-existing name reuses its slug and never enters this collision retry."
-  (loop for slug = (make-action-slug name)
-        unless (find-action app slug)
-          return slug))
+  "Allocate a slug for NAME that is not already taken in APP's registry, bumping
+the attempt counter on the (astronomically unlikely) chance the short id
+collides with another action's. A collision needs two actions whose downcased
+names AND hashes both match, and the retry is resolved by registration order,
+which is fixed for a given build -- so the outcome is reproducible. Only reached
+when NAME has no slug yet; redefining an existing name reuses its slug and never
+enters this loop."
+  (loop :for attempt :from 0
+        :for slug := (make-action-slug name attempt)
+        :unless (find-action app slug)
+          :return slug))
 
 (defun register-action (app name method handler)
   "Register an action, reusing the existing slug for NAME (allocating a new one
