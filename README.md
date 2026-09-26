@@ -1,12 +1,13 @@
 # ningle-actions
 
-Server actions for [ningle](https://github.com/fukamachi/ningle), built for
-[htmx](https://htmx.org/) v4.
+Server actions for [ningle](https://github.com/fukamachi/ningle). They make
+partial HTML updates easier to handle with hypermedia libraries such as
+[htmx](https://four.htmx.org/).
 
 `defaction` defines a partial-update endpoint and, under the same name, a
 function that returns that endpoint's URL. Your views call the function
 instead of writing a URL, so you never have to design, name, or keep in sync
-the URLs behind your `hx-post`s and `hx-get`s.
+the URLs that your buttons and forms request fragments from.
 
 ```lisp
 (na:defaction like :post (params)
@@ -21,8 +22,8 @@ A hypermedia app has two kinds of URLs:
 
 - **Page URLs**, such as `/posts/42` or `/settings`. These are resources that
   people bookmark and share, and you design them on purpose.
-- **Action URLs**: whatever an `hx-post` or `hx-get` hits to get back an HTML
-  fragment. Nobody visits these. They exist only so a button or form can work.
+- **Action URLs**: whatever a button or form requests, through htmx or a
+  similar library, to get back an HTML fragment. Nobody visits these. They exist only so a button or form can work.
 
 Plain ningle puts both kinds in one route table. Your page routes get mixed up
 with a growing pile of fragment routes, and you have to name each fragment
@@ -38,7 +39,7 @@ Each action is a Lisp function on the server, and the view gets its URL by
 calling that function. Rename an action and every reference to its URL is a
 function call that your compiler and editor know about, not a string you have
 to search for. The idea is close to Next.js Server Actions, adapted to
-server-rendered HTML and htmx.
+server-rendered HTML and hypermedia libraries.
 
 ## Installation
 
@@ -50,10 +51,12 @@ git ningle-actions https://github.com/skyizwhite/ningle-actions.git
 
 Then depend on `"ningle-actions"` in your system definition.
 
-The examples below build HTML with [hsx](https://github.com/skyizwhite/hsx),
-but ningle-actions doesn't depend on it. Any HTML generator works.
+ningle-actions doesn't depend on any client library or HTML generator. The
+examples below use [htmx](https://four.htmx.org/) on the client and
+[hsx](https://github.com/skyizwhite/hsx) for HTML, but any client that sends
+HTTP requests to a URL works the same way.
 
-## Usage with htmx v4
+## Usage
 
 ### 1. Mount the actions app
 
@@ -131,7 +134,7 @@ The body is wrapped in `(block NAME ...)`, so you can exit early with
 
 ### 3. Call them from views
 
-Put the result of calling the action's function wherever htmx expects a URL:
+Put the result of calling the action's function wherever the client library expects a URL:
 
 ```lisp
 (setf (ningle:route *app* "/")
@@ -153,7 +156,7 @@ Put the result of calling the action's function wherever htmx expects a URL:
 
 ### Passing parameters
 
-htmx sends form fields and `hx-vals` as usual, and they arrive in `params`.
+Whatever the client sends as form fields or a query string arrives in `params`.
 You can also pass keyword arguments to the action function to bake values into
 the URL as a query string:
 
@@ -169,14 +172,14 @@ printed with `princ-to-string`, URL-encoded, and kept in argument order. A `nil`
 value is sent as the string `"NIL"`, so leave the key out instead. On the server
 these values appear in `params` like any other query parameter.
 
-This lets each button in a list carry its own ID in the URL, without a separate
-`hx-vals`.
+This lets each button in a list carry its own ID in the URL, with no extra
+client-side configuration.
 
-### Setting status and htmx response headers
+### Setting status and response headers
 
-The library doesn't wrap htmx. To set a status code or send response headers
-such as `HX-Trigger`, `HX-Retarget`, `HX-Reswap`, or `HX-Redirect`, set them
-on ningle's `*response*` directly:
+The library doesn't wrap any client library's protocol. To set a status code or
+send response headers such as htmx's `HX-Trigger`, set them on ningle's
+`*response*` directly:
 
 ```lisp
 (na:defaction delete-item :delete (params)
@@ -281,9 +284,9 @@ unreachable because the middleware handles that path first.
 ### Unknown actions return an empty `404`
 
 An unknown slug and a method mismatch both return `404` with an empty body,
-never `405`. htmx v4 swaps error responses by default, so an empty `404`, for
-example from a page left open across a deploy, clears the target element.
-Configure this on the client, for example with `hx-status:404="swap:none"`.
+never `405`. If your client swaps error responses into the page (htmx v4 does
+this by default), an empty `404`, for example from a page left open across a
+deploy, clears the target element. Configure this on the client side.
 
 ## API
 
